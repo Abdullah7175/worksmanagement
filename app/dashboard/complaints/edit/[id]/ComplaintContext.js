@@ -8,8 +8,8 @@ const ComplaintContext = createContext();
 export const ComplaintProvider = ({ children }) => {
   const [complaint, setComplaint] = useState({ 
     subject: '',
-    district_id: '',
-    town_id: '',
+    district_title: '',
+    town: '',
     site_location: '',
     size_of_pipe: '',
     length_of_pipe: '',

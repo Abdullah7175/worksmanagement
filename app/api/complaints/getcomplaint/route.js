@@ -1,7 +1,35 @@
 
 import { NextResponse } from 'next/server';
 import { connectToDatabase } from '@/lib/db';
+import { Buffer } from 'buffer';
+// Update the path to your DB connection utility
 
+function decodeWKBToGeoPoint(wkbHex) {
+        const buffer = Buffer.from(wkbHex, 'hex');
+    
+        // Determine byte order: 1 = little-endian, 0 = big-endian
+        const byteOrder = buffer.readUInt8(0);
+        const isLittleEndian = byteOrder === 1;
+    
+        // Read the geometry type (next 4 bytes)
+        const geometryType = isLittleEndian
+            ? buffer.readUInt32LE(1)
+            : buffer.readUInt32BE(1);
+    
+        if (geometryType !== 1) { // 1 indicates "Point"
+            throw new Error('Invalid geometry type. Expected Point.');
+        }
+    
+        // Read the coordinates (longitude and latitude as doubles)
+        const readDouble = (offset) =>
+            isLittleEndian ? buffer.readDoubleLE(offset) : buffer.readDoubleBE(offset);
+    
+        const longitude = readDouble(5); // First double (longitude)
+        const latitude = readDouble(13); // Second double (latitude)
+    
+        // Return coordinates in "latitude,longitude" format
+        return `${latitude},${longitude}`;
+}
 
 export async function GET(request) {
     const { searchParams } = new URL(request.url);
@@ -11,16 +39,53 @@ export async function GET(request) {
 
     try {
         if (id) {
-            console.log(id)
-            console.log("here" ,id)
-            const query = 'SELECT * FROM work WHERE id = $1';
+            const query = `SELECT 
+    id, 
+    subject, 
+    district_title, 
+    town, 
+    site_location, 
+    size_of_pipe, 
+    length_of_pipe, 
+    allied_items, 
+    associated_work, 
+    survey_date, 
+    completion_date, 
+    geo_tag, 
+    before_image, 
+    after_image, 
+    assistant_name, 
+    shoot_date, 
+    link, 
+    expenditure_charge, 
+    complaint_type, 
+    complaint_subtype, 
+    status
+FROM 
+    public.work_details_view
+WHERE 
+    id = $1;
+`;
             const result = await client.query(query, [id]);
-            console.log(result)
+            console.log("Work", result);
+
             if (result.rows.length === 0) {
                 return NextResponse.json({ error: 'Types not found' }, { status: 404 });
             }
 
-            return NextResponse.json(result.rows[0], { status: 200 });
+            const workDetails = result.rows[0];
+
+            // Decode geo_tag to SRID=4326;POINT format if it exists
+            if (workDetails.geo_tag) {
+                try {
+                    workDetails.geo_tag = decodeWKBToGeoPoint(workDetails.geo_tag);
+                } catch (error) {
+                    console.error('Error decoding geo_tag:', error);
+                    workDetails.geo_tag = null; // Handle invalid geo_tag gracefully
+                }
+            }
+
+            return NextResponse.json(workDetails, { status: 200 });
         } else {
             const query = 'SELECT * FROM work';
             const result = await client.query(query);
@@ -34,6 +99,11 @@ export async function GET(request) {
         client.release && client.release();
     }
 }
+
+
+
+
+
 export async function POST(req) {
     const client = await connectToDatabase();
 

@@ -22,7 +22,6 @@ export async function GET(request) {
         } else {
             const query = 'SELECT * FROM agents';
             const result = await client.query(query);
-
             return NextResponse.json(result.rows, { status: 200 });
         }
     } catch (error) {

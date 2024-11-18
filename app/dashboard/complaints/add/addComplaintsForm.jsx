@@ -79,6 +79,7 @@ const validationSchema = Yup.object({
 
 const ComplaintForm = () => {
     const { complaint, updateComplaint } = useComplaintContext();
+    const [types, setTypes] = useState(0)
     const { toast } = useToast();
     const [isSuccess, setIsSuccess] = useState(false);
     const [complaintType, setComplaintType] = useState([]);
@@ -121,7 +122,7 @@ const ComplaintForm = () => {
         // validationSchema,
         onSubmit: async (values) => {
             updateComplaint(values);
-
+            console.log(values)
             try {
                 const response = await fetch('/api/complaints', {
                     method: 'POST',
@@ -197,7 +198,7 @@ const ComplaintForm = () => {
 
         const fetchAssistant = async () => {
             try {
-                const res = await fetch('/api/users', { method: 'GET' });
+                const res = await fetch('/api/agents', { method: 'GET' });
                 if (!res.ok) {
                     throw new Error('Failed to fetch assistant');
                 }

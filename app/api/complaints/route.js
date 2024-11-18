@@ -10,11 +10,11 @@ export async function GET(request) {
 
     try {
         if (id) {
-            const query = 'SELECT * FROM work WHERE id = $1';
+            const query = 'SELECT * FROM complaint_types WHERE id = $1';
             const result = await client.query(query, [id]);
 
             if (result.rows.length === 0) {
-                return NextResponse.json({ error: ' not found' }, { status: 404 });
+                return NextResponse.json({ error: 'Types not found' }, { status: 404 });
             }
 
             return NextResponse.json(result.rows[0], { status: 200 });
@@ -53,6 +53,7 @@ export async function POST(req) {
 
     try {
         const body = await req.json();
+
         const { 
             subject, district_id, town_id, site_location, size_of_pipe, 
             length_of_pipe, allied_items, associated_work, survey_date, 
@@ -71,6 +72,7 @@ export async function POST(req) {
             complaint_type_id, complaint_subtype_id, status
         );
 
+        console.log("work data", workData);
 
         await client.query('COMMIT');
         return NextResponse.json({ message: 'Work and related data saved successfully', id: workData }, { status: 200 });
@@ -89,116 +91,36 @@ export async function POST(req) {
 //     try {
 //         const body = await req.json();
 //         const client = await connectToDatabase();
-//         const { id,subject, district_id, town_id, site_location, size_of_pipe, 
-//             length_of_pipe, allied_items, associated_work, survey_date, 
-//             completion_date, geo_tag, assistant_id, status, shoot_date, 
-//             complaint_type_id, complaint_subtype_id, expenditure_charge, 
-//             before_image, after_image, link } = body;
+//         const { id, subtype_name, complaint_type_id, description } = body;
 
-//         if (!id || !subject || !district_id || !town_id || !site_location || !size_of_pipe || !length_of_pipe || !allied_items || !associated_work||!survey_date || !completion_date || !geo_tag || !assistant_id || !status || !shoot_date || !complaint_type_id || !complaint_subtype_id || !expenditure_charge || !before_image || !after_image || !link) {
-//             return NextResponse.json({ error: 'All fields (subject,district_id,town_id,site_location,size_of_pipe,length_of_pipe,allied_items,associated_work,survey_date,completion_date,geo_tag,assistant_id,status,shoot_date,complaint_type_id,complaint_subtype_id,expenditure_charge,before_image,after_image,link) are required' }, { status: 400 });
+//         if (!id || !subtype_name || !complaint_type_id || !description) {
+//             return NextResponse.json({ error: 'All fields (subtype_name,complaint_type_id,description) are required' }, { status: 400 });
 //         }
 
 //         const query = `
-//             UPDATE works
-//             SET subject = $1, district_id = $2, town_id = $3,site_location = $4, size_of_pipe = $5, length_of_pipe = $6, allied_items = $7, associated_work = $8,survey_date = $9, completion_date = $10, geo_tag = $11, assistant_id = $12 ,status = $13, shoot_date = $14, complaint_type_id = $15, complaint_subtype_id = $16, expenditure_charge = $17,before_image = $18, after_image = $19, link = $20
-//             WHERE id = $21
+//             UPDATE complaint_subtypes
+//             SET subtype_name = $1, complaint_type_id = $2, description = $3
+//             WHERE id = $4
 //             RETURNING *;
 //         `;
-//         const { rows: updatedWorks } = await client.query(query, [
-//             subject,
-//             district_id,
-//             town_id,
-//             site_location,
-//             size_of_pipe,
-//             length_of_pipe,
-//             allied_items,
-//             associated_work,
-//             survey_date,
-//             completion_date,
-//             geo_tag,
-//             assistant_id,
-//             status,
-//             shoot_date,
+//         const { rows: updatedSubtype } = await client.query(query, [
+//             subtype_name,
 //             complaint_type_id,
-//             complaint_subtype_id,
-//             expenditure_charge,
-//             before_image,
-//             after_image,
-//             link,
+//             description,
 //             id
 //         ]);
 
-//         if (updatedWorks.length === 0) {
-//             return NextResponse.json({ error: 'Complaint not found' }, { status: 404 });
+//         if (updatedSubtype.length === 0) {
+//             return NextResponse.json({ error: 'Subtype not found' }, { status: 404 });
 //         }
 
-//         return NextResponse.json({ message: 'Complaint updated successfully', type: updatedWorks[0] }, { status: 200 });
+//         return NextResponse.json({ message: 'Subtype updated successfully', type: updatedSubtype[0] }, { status: 200 });
 
 //     } catch (error) {
-//         console.error('Error updating complaint:', error);
-//         return NextResponse.json({ error: 'Error updating complaint' }, { status: 500 });
+//         console.error('Error updating subtype:', error);
+//         return NextResponse.json({ error: 'Error updating subtype' }, { status: 500 });
 //     }
 // }
-export async function PUT(req) {
-    const client = await connectToDatabase();
-    const query = `
-        UPDATE works
-        SET subject = $1, district_id = $2, town_id = $3, site_location = $4, size_of_pipe = $5, 
-            length_of_pipe = $6, allied_items = $7, associated_work = $8, survey_date = $9, 
-            completion_date = $10, geo_tag = $11, assistant_id = $12, status = $13, shoot_date = $14, 
-            complaint_type_id = $15, complaint_subtype_id = $16, expenditure_charge = $17, 
-            before_image = $18, after_image = $19, link = $20
-        WHERE id = $21
-        RETURNING *;
-    `;
-  
-    try {
-        // Parse request body
-        const body = await req.json();
-        const { id, subject, district_id, town_id, site_location, size_of_pipe, length_of_pipe, 
-                allied_items, associated_work, survey_date, completion_date, geo_tag, assistant_id, 
-                status, shoot_date, complaint_type_id, complaint_subtype_id, expenditure_charge, 
-                before_image, after_image, link } = body;
-
-        // Validation check for required fields
-        if (!id || !subject || !district_id || !town_id || !site_location || !size_of_pipe || 
-            !length_of_pipe || !allied_items || !associated_work || !survey_date || !completion_date || 
-            !geo_tag || !assistant_id || !status || !shoot_date || !complaint_type_id || 
-            !complaint_subtype_id || !expenditure_charge || !before_image || !after_image || !link) {
-            return NextResponse.json({ error: 'All fields are required' }, { status: 400 });
-        }
-        await client.query('BEGIN');
-        const { rows: updatedWorks } = await client.query(query, [
-            subject, district_id, town_id, site_location, size_of_pipe, length_of_pipe, 
-            allied_items, associated_work, survey_date, completion_date, geo_tag, assistant_id, 
-            status, shoot_date, complaint_type_id, complaint_subtype_id, expenditure_charge, 
-            before_image, after_image, link, id
-        ]);
-
-        if (updatedWorks.length === 0) {
-           
-            await client.query('ROLLBACK');
-            return NextResponse.json({ error: 'Complaint not found' }, { status: 404 });
-        }
-
-    
-        await client.query('COMMIT');
-        
-        return NextResponse.json({ message: 'Complaint updated successfully', type: updatedWorks[0] }, { status: 200 });
-
-    } catch (error) {
-        console.error('Error updating complaint:', error);
-
-        
-        await client.query('ROLLBACK');
-        
-        return NextResponse.json({ error: 'Error updating complaint' }, { status: 500 });
-    } finally {
-        
-        client.release();
-    }
-}
 
 
 

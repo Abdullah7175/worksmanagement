@@ -129,7 +129,7 @@ const ComplaintForm = () => {
                         console.log(data);
                         setInitialValues({
                             subject: data.subject,
-                            district_id: data.district_id,
+                            district_id: data.district_title,
                             town_id: data.town_id,
                             site_location: data.site_location,
                             size_of_pipe: data.size_of_pipe,
@@ -299,6 +299,7 @@ const ComplaintForm = () => {
         value: district.id,
         label: district.title,
     }));
+    
 
     const AssistantOptions = assistant.map(agent => ({
         value: agent.id,
@@ -309,6 +310,7 @@ const ComplaintForm = () => {
         value: item.id,
         label: item.name,
     }));
+    
 
     const handleDistrictChange = (selectedOption) => {
         setSelectedDistrict(selectedOption);
@@ -472,7 +474,7 @@ const ComplaintForm = () => {
                             name="survey_date"
                             type="date"
                             onChange={formik.handleChange}
-                            value={formik.values.survey_date}
+                            value={formik.values.survey_date.split('T')[0]}
                             className="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                         />
                         {formik.errors.survey_date && formik.touched.survey_date && <div className="text-red-600 text-sm mt-2">{formik.errors.survey_date}</div>}
@@ -485,7 +487,7 @@ const ComplaintForm = () => {
                             name="completion_date"
                             type="date"
                             onChange={formik.handleChange}
-                            value={formik.values.completion_date}
+                            value={formik.values.completion_date.split('T')[0]}
                             className="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                         />
                         {formik.errors.completion_date && formik.touched.completion_date && <div className="text-red-600 text-sm mt-2">{formik.errors.completion_date}</div>}
@@ -553,7 +555,7 @@ const ComplaintForm = () => {
                             name="shoot_date"
                             type="date"
                             onChange={formik.handleChange}
-                            value={formik.values.shoot_date}
+                            value={formik.values.shoot_date.split('T')[0]}
                             className="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                         />
                         {formik.errors.shoot_date && formik.touched.shoot_date && <div className="text-red-600 text-sm mt-2">{formik.errors.shoot_date}</div>}

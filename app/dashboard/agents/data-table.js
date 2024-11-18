@@ -21,6 +21,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Bell, Plus } from "lucide-react";
 import Link from "next/link";
+import Image from "next/image";
 
 export function DataTable({ columns, data, children }) {
     const [sorting, setSorting] = useState([]);
@@ -69,9 +70,9 @@ export function DataTable({ columns, data, children }) {
                                         {header.isPlaceholder
                                             ? null
                                             : flexRender(
-                                                  header.column.columnDef.header,
-                                                  header.getContext()
-                                              )}
+                                                header.column.columnDef.header,
+                                                header.getContext()
+                                            )}
                                     </TableHead>
                                 ))}
                             </TableRow>
@@ -86,9 +87,26 @@ export function DataTable({ columns, data, children }) {
                                 >
                                     {row.getVisibleCells().map((cell) => (
                                         <TableCell key={cell.id}>
-                                            {flexRender(
-                                                cell.column.columnDef.cell,
-                                                cell.getContext()
+                                            {cell.column.id === "image" ? (
+                                                cell.getValue() ? (
+                                                    <Image
+                                                        src={cell.getValue()}
+                                                        alt="User Image"
+                                                        className="w-10 h-10 object-cover rounded-full"
+                                                    />
+                                                ) : (
+                                                    <div className="w-10 h-10 bg-gray-200 rounded-full flex items-center justify-center">
+                                                        <Image
+                                                            src="https://placehold.co/100"
+                                                            width={100}
+                                                            height={100}
+                                                            alt="User Image"
+                                                            className="w-10 h-10 object-cover rounded-full"
+                                                        />
+                                                    </div>
+                                                )
+                                            ) : (
+                                                flexRender(cell.column.columnDef.cell, cell.getContext())
                                             )}
                                         </TableCell>
                                     ))}
