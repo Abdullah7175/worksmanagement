@@ -98,3 +98,33 @@ export async function PUT(req) {
         return NextResponse.json({ error: 'Error updating user' }, { status: 500 });
     }
 }
+export async function DELETE(req) {
+    try {
+        const body = await req.json();
+        const client = await connectToDatabase();
+
+        const { id } = body;
+
+        if (!id) {
+            return NextResponse.json({ error: 'User Id is required' }, { status: 400 });
+        }
+
+        const query = `
+            DELETE FROM users 
+            WHERE id = $1
+            RETURNING *;
+        `;
+
+        const { rows: deletedUser } = await client.query(query, [id]);
+
+        if (deletedUser.length === 0) {
+            return NextResponse.json({ error: 'User not found' }, { status: 404 });
+        }
+
+        return NextResponse.json({ message: 'User deleted successfully', user: deletedUser[0] }, { status: 200 });
+
+    } catch (error) {
+        console.error('Error deleting user:', error);
+        return NextResponse.json({ error: 'Error deleting user' }, { status: 500 });
+    }
+}

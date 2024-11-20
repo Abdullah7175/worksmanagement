@@ -2,26 +2,26 @@
 import React, { createContext, useState, useContext } from 'react';
 
 // Create a context
-const UserContext = createContext();
+const VideoContext = createContext();
 
 // Create a provider component
-export const UserProvider = ({ children }) => {
-  const [user, setUser] = useState({ name: '', email: '', age: '' });
+export const VideoProvider = ({ children }) => {
+  const [video, setVideo] = useState({ id: '', link: '' });
 
   // Function to update the user data
-  const updateUser = (newUserData) => {
-    setUser((prevUser) => ({
-      ...prevUser,
-      ...newUserData,
+  const updateVideo = (newVideoData) => {
+    setVideo((prevVideo) => ({
+      ...prevVideo,
+      ...newVideoData,
     }));
   };
 
   return (
-    <UserContext.Provider value={{ user, updateUser }}>
+    <VideoContext.Provider value={{ video, updateVideo }}>
       {children}
-    </UserContext.Provider>
+    </VideoContext.Provider>
   );
 };
 
 // Custom hook to use the user context
-export const useUserContext = () => useContext(UserContext);
+export const useVideoContext = () => useContext(VideoContext);

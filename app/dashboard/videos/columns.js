@@ -26,7 +26,7 @@ export const columns = [
   {
     id: "actions",
     cell: ({ row }) => {
-      const user = row.original
+      const video = row.original
 
       return (
         <div className="text-right"> {/* Apply the style here */}
@@ -40,11 +40,11 @@ export const columns = [
           <DropdownMenuContent align="end">
             <DropdownMenuLabel>Actions</DropdownMenuLabel>
             <DropdownMenuItem>
-              <Link href={`/dashboard/users/edit/${user.id}`}>Edit User</Link>
+              <Link href={`/dashboard/videos/edit/${video.id}`}>Edit Video</Link>
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem>
-              <Link href={`/dashboard/users/view/${user.id}`}>View User</Link>
+            <Link className="text-red-700" href={`/dashboard/videos/delete/${video.id}`}>Delete Video</Link>
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
