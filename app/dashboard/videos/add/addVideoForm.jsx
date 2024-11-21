@@ -67,7 +67,7 @@ const VideoForm = () => {
         <div className='container'>
             <form onSubmit={formik.handleSubmit} className="max-w-7xl mx-auto p-6 bg-white shadow-sm rounded-lg space-y-6 border">
                 <div className="grid sm:grid-cols-1 md:grid-cols-2 gap-8">
-                <div className="col-span-1 md:col-span-2">
+                    <div className="col-span-1 md:col-span-2">
                         <label htmlFor="link" className="block text-gray-700 text-sm font-medium">Link</label>
                         <input
                             id="link"
@@ -80,6 +80,30 @@ const VideoForm = () => {
                         {formik.errors.link && formik.touched.link && <div className="text-red-600 text-sm mt-2">{formik.errors.link}</div>}
                     </div>
                 </div>
+                <div>
+                    <label htmlFor="video" className="block text-gray-700 text-sm font-medium">Upload Video</label>
+                    <div className="mt-1">
+                        <input
+                            id="video"
+                            name="video"
+                            type="file"
+                            onChange={(e) => {
+                                formik.setFieldValue("video", e.target.files[0]);
+                            }}
+                            className="hidden"
+                        />
+                        <label htmlFor="video" className="cursor-pointer inline-block bg-gray-100 text-gray-500 border-3 font-semibold py-2 px-4 rounded-md  focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                            Choose a video
+                        </label>
+                        {formik.values.video && formik.values.video.name && (
+                            <div className="mt-2 text-gray-700 text-sm">
+                                <span className="font-medium">Selected File:</span> {formik.values.video.name}
+                            </div>
+                        )}
+                    </div>
+                    {formik.errors.video && formik.touched.video && <div className="text-red-600 text-sm mt-2">{formik.errors.video}</div>}
+                </div>
+
 
                 <div className='flex justify-end'>
                     <button

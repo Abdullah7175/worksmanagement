@@ -26,6 +26,18 @@ export const columns = [
   {
     accessorKey: "video_link",
     header: "Video/Link",
+    cell: ({ getValue }) => {
+      const status_val = getValue();
+      if(status_val == 1){
+        return (
+          <Badge variant="secondary">In Progress</Badge>
+        )
+      }
+      return (
+        <Badge variant="primary">Completed</Badge>
+      )
+    },
+  
   },
   {
     id: "actions",
