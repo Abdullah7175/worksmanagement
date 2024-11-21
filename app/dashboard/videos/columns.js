@@ -16,11 +16,15 @@ import Link from "next/link"
 
 export const columns = [
   {
-    accessorKey: "caseId",
+    accessorKey: "id",
     header: "Case ID",
   },
   {
-    accessorKey: "link",
+    accessorKey: "subject",
+    header: "Subject",
+  },
+  {
+    accessorKey: "video_link",
     header: "Video/Link",
   },
   {
@@ -40,11 +44,11 @@ export const columns = [
           <DropdownMenuContent align="end">
             <DropdownMenuLabel>Actions</DropdownMenuLabel>
             <DropdownMenuItem>
-              <Link href={`/dashboard/videos/edit/${video.id}`}>Edit Video</Link>
+              <Link href={`/dashboard/videos/edit/${video.video_id}`}>Edit Video</Link>
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem>
-            <Link className="text-red-700" href={`/dashboard/videos/delete/${video.id}`}>Delete Video</Link>
+            <Link className="text-red-700" href={`/dashboard/videos/delete/${video.video_id}`}>Delete Video</Link>
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

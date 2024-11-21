@@ -51,9 +51,9 @@ export function DataTable({ columns, data, children }) {
                     </Link>
                     <Input
                         placeholder="Filter Videos By Case Id..."
-                        value={table.getColumn("caseId")?.getFilterValue() || ""}
+                        value={table.getColumn("id")?.getFilterValue() || ""}
                         onChange={(event) =>
-                            table.getColumn("caseId")?.setFilterValue(event.target.value)
+                            table.getColumn("id")?.setFilterValue(event.target.value)
                         }
                         className="max-w-sm bg-gray-100 shadow-sm"
                     />

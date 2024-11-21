@@ -3,13 +3,11 @@
 import React, { useState } from 'react';
 import { useFormik } from 'formik';
 import * as Yup from 'yup';
-import { useVideoContext } from './VideoContext';
+import { useVideoContext } from '../VideoContext';
 import { useToast } from "@/hooks/use-toast";
 
 
 const validationSchema = Yup.object({
-    id: Yup.string()
-        .required('Id is required'),
     link: Yup.string()
         .min(3, 'Link must be at least 3 characters'),
 });
@@ -20,7 +18,6 @@ const VideoForm = () => {
     const [isSuccess, setIsSuccess] = useState(false);
     const formik = useFormik({
         initialValues: {
-            id: video.id || '',
             link: video.link || '',
         },
         validationSchema,
@@ -69,20 +66,6 @@ const VideoForm = () => {
     return (
         <div className='container'>
             <form onSubmit={formik.handleSubmit} className="max-w-7xl mx-auto p-6 bg-white shadow-sm rounded-lg space-y-6 border">
-            <div className="grid sm:grid-cols-1 md:grid-cols-2 gap-8">
-                    <div className="col-span-1 md:col-span-2">
-                        <label htmlFor="id" className="block text-gray-700 text-sm font-medium">Id</label>
-                        <input
-                            id="id"
-                            name="id"
-                            type="text"
-                            onChange={formik.handleChange}
-                            value={formik.values.subject}
-                            className="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                        />
-                        {formik.errors.id && formik.touched.id && <div className="text-red-600 text-sm mt-2">{formik.errors.id}</div>}
-                    </div>
-                </div>
                 <div className="grid sm:grid-cols-1 md:grid-cols-2 gap-8">
                 <div className="col-span-1 md:col-span-2">
                         <label htmlFor="link" className="block text-gray-700 text-sm font-medium">Link</label>

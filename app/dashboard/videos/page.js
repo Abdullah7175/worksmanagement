@@ -10,7 +10,7 @@ export default function Page() {
   useEffect(() => {
     const fetchVideos = async () => {
       try {
-        const response = await fetch('/api/videos', { method: 'GET' });
+        const response = await fetch('/api/videos/getinfo', { method: 'GET' });
 
         if (response.ok) {
           const data = await response.json();

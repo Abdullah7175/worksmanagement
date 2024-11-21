@@ -67,7 +67,6 @@ export const columns = [
     id: "actions",
     cell: ({ row }) => {
       const caseID = row.original
-
       return (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>

@@ -6,7 +6,7 @@ const VideoContext = createContext();
 
 // Create a provider component
 export const VideoProvider = ({ children }) => {
-  const [video, setVideo] = useState({ id: '', link: '' });
+  const [video, setVideo] = useState({link: '' });
 
   // Function to update the user data
   const updateVideo = (newVideoData) => {
