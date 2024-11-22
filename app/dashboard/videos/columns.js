@@ -27,17 +27,13 @@ export const columns = [
     accessorKey: "video_link",
     header: "Video/Link",
     cell: ({ getValue }) => {
-      const status_val = getValue();
-      if(status_val == 1){
-        return (
-          <Badge variant="secondary">In Progress</Badge>
-        )
-      }
+      const video_link = getValue();
       return (
-        <Badge variant="primary">Completed</Badge>
-      )
+        <Link href={video_link} target="_blank" rel="noopener noreferrer">
+        <Button variant="primary">Watch</Button>
+      </Link>
+      );
     },
-  
   },
   {
     id: "actions",
@@ -46,25 +42,25 @@ export const columns = [
 
       return (
         <div className="text-right"> {/* Apply the style here */}
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" className="h-8 w-8 p-0">
-              <span className="sr-only">Open menu</span>
-              <MoreHorizontal className="h-4 w-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuLabel>Actions</DropdownMenuLabel>
-            <DropdownMenuItem>
-              <Link href={`/dashboard/videos/edit/${video.video_id}`}>Edit Video</Link>
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem>
-            <Link className="text-red-700" href={`/dashboard/videos/delete/${video.video_id}`}>Delete Video</Link>
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </div>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" className="h-8 w-8 p-0">
+                <span className="sr-only">Open menu</span>
+                <MoreHorizontal className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuLabel>Actions</DropdownMenuLabel>
+              <DropdownMenuItem>
+                <Link href={`/dashboard/videos/edit/${video.video_id}`}>Edit Video</Link>
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem>
+                <Link className="text-red-700" href={`/dashboard/videos/delete/${video.video_id}`}>Delete Video</Link>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
       )
     },
   },

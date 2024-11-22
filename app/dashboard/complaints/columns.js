@@ -45,6 +45,7 @@ export const columns = [
     header: "Status",
     cell: ({ getValue }) => {
       const status_val = getValue();
+      console.log(status_val)
       if(status_val == 1){
         return (
           <Badge variant="secondary">In Progress</Badge>

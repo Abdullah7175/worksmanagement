@@ -7,6 +7,7 @@ import { useVideoContext } from '../VideoContext';
 import { useToast } from "@/hooks/use-toast";
 
 
+
 const validationSchema = Yup.object({
     link: Yup.string()
         .min(3, 'Link must be at least 3 characters'),
@@ -16,6 +17,9 @@ const VideoForm = () => {
     const { video, updateVideo } = useVideoContext();
     const { toast } = useToast();
     const [isSuccess, setIsSuccess] = useState(false);
+    const [uploadvideo, setuploadVideo] = useState(null);
+    const [message, setMessage] = useState('');
+    
     const formik = useFormik({
         initialValues: {
             link: video.link || '',
@@ -61,11 +65,41 @@ const VideoForm = () => {
     if (isSuccess) {
         window.location.href = '/dashboard/videos';
     }
+    const handleFileChange = (e) => {
+        setuploadVideo(e.target.files[0]);
+      };
+    
+      const uploadhandleSubmit = async (e) => {
+        e.preventDefault();
+        if (!uploadvideo) {
+          setMessage('Please select a video file');
+          return;
+        }
+    
+        const formData = new FormData();
+        formData.append('video', uploadvideo);
+    
+        try {
+          const res = await fetch('/api/upload', {
+            method: 'POST',
+            body: formData,
+          });
+    
+          const data = await res.json();
+          if (res.ok) {
+            setMessage(`Video uploaded successfully: ${data.videoPath}`);
+          } else {
+            setMessage(data.error || 'Video upload failed');
+          }
+        } catch (error) {
+          setMessage('An error occurred while uploading the video');
+        }
+    };
 
 
     return (
         <div className='container'>
-            <form onSubmit={formik.handleSubmit} className="max-w-7xl mx-auto p-6 bg-white shadow-sm rounded-lg space-y-6 border">
+            <form encType="multipart/form-data" onSubmit={formik.handleSubmit} className="max-w-7xl mx-auto p-6 bg-white shadow-sm rounded-lg space-y-6 border">
                 <div className="grid sm:grid-cols-1 md:grid-cols-2 gap-8">
                     <div className="col-span-1 md:col-span-2">
                         <label htmlFor="link" className="block text-gray-700 text-sm font-medium">Link</label>
