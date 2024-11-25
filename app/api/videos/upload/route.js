@@ -1,47 +1,53 @@
-import NextAuth from "next-auth";
-import { connectToDatabase } from '@/lib/db';
-import { upload } from '../../lib/multerConfig';
-import fs from 'fs';
-import path from 'path';
+import multer from 'multer';
+import { NextResponse } from 'next/server';
+import { promises as fs } from 'fs';
 
-// Create video uploads directory if it doesn't exist
-const videoUploadDir = 'C:/Users/DELL/Desktop/uploads/';
-if (!fs.existsSync(videoUploadDir)) {
-  fs.mkdirSync(videoUploadDir, { recursive: true });
-}
-
-// Configure the handler
-const handler = nextConnect({
-  onError: (err, req, res) => {
-    res.status(500).json({ error: err.message });
-  },
-  onNoMatch: (req, res) => {
-    res.status(405).json({ error: 'Method Not Allowed' });
-  },
+// Configure Multer to store files in a specific directory
+const upload = multer({
+  storage: multer.diskStorage({
+    destination: 'C:/Users/DELL/Downloads/uploads',
+    filename: (req, file, cb) => {
+      cb(null, `${Date.now()}-${file.originalname}`);
+    },
+  }),
 });
 
-// Use Multer middleware for single video file
-handler.use(upload.single('video'));
+const uploadMiddleware = upload.single('vid');
 
-// Handle POST request
-handler.post((req, res) => {
-  if (!req.file) {
-    return res.status(400).json({ message: 'No video uploaded' });
-  }
-
-  const videoPath = path.join('/uploads/videos/', req.file.filename);
-
-  res.status(200).json({
-    message: 'Video uploaded successfully',
-    videoPath, // Relative path to the uploaded video
+// Helper to convert Multer middleware into a promise
+const runMiddleware = (req, res, fn) => {
+  return new Promise((resolve, reject) => {
+    fn(req, res, (result) => {
+      if (result instanceof Error) {
+        return reject(result);
+      }
+      resolve(result);
+    });
   });
-});
-
-export default handler;
-
-// Disable body parser (required for file uploads in Next.js)
-export const config = {
-  api: {
-    bodyParser: false,
-  },
 };
+
+export async function POST(req) {
+  try {
+    const formData = await req.formData();
+
+    // Extract file from formData
+    const file = formData.get('vid');
+
+    if (!file) {
+      return NextResponse.json({ error: 'No file provided' }, { status: 400 });
+    }
+
+    // Save the file manually
+    const buffer = await file.arrayBuffer();
+    const filename = `C:/Users/DELL/Downloads/uploads/${Date.now()}-${file.name}`;
+    await fs.writeFile(filename, Buffer.from(buffer));
+
+    return NextResponse.json({
+      message: 'Video uploaded successfully',
+      filename,
+    });
+  } catch (error) {
+    console.error(error);
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+}
