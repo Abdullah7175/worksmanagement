@@ -99,6 +99,7 @@ const ComplaintForm = () => {
         subject: '',
         district_id: '',
         town_id: '',
+        district_title: '',
         site_location: '',
         size_of_pipe: '',
         length_of_pipe: '',
@@ -127,9 +128,11 @@ const ComplaintForm = () => {
                     if (response.ok) {
                         const data = await response.json();
                         console.log(data);
+
                         setInitialValues({
                             subject: data.subject,
-                            district_id: data.district_title,
+                            district_id: data.district_id,
+                            district_title: data.district_title,
                             town_id: data.town_id,
                             site_location: data.site_location,
                             size_of_pipe: data.size_of_pipe,
@@ -299,7 +302,7 @@ const ComplaintForm = () => {
         value: district.id,
         label: district.title,
     }));
-    
+
 
     const AssistantOptions = assistant.map(agent => ({
         value: agent.id,
@@ -310,7 +313,7 @@ const ComplaintForm = () => {
         value: item.id,
         label: item.name,
     }));
-    
+
 
     const handleDistrictChange = (selectedOption) => {
         setSelectedDistrict(selectedOption);
@@ -368,10 +371,12 @@ const ComplaintForm = () => {
                             name="district_id"
                             options={DistrictOptions}
                             onChange={handleDistrictChange}
-                            value={selectedDistrict || null}
+                            value={DistrictOptions.find(option => option.value === formik.values.district_id) || null}
                             className="mt-1 w-full"
                             classNamePrefix="react-select"
                         />
+
+
                         {formik.errors.district_id && formik.touched.district_id && <div className="text-red-600 text-sm mt-2">{formik.errors.district_id}</div>}
                     </div>
                 </div>
@@ -570,7 +575,9 @@ const ComplaintForm = () => {
                             name="complaint_type_id"
                             options={complaintTypeOptions}
                             onChange={handleComplaintTypeChange}
-                            value={selectedComplaintType || null}
+                            value={
+                                complaintTypeOptions.find((option) => option.value === formik.values.district_title) || selectedComplaintType
+                            }
                             className="mt-1 w-full"
                             classNamePrefix="react-select"
                         />
