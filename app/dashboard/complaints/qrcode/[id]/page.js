@@ -51,7 +51,7 @@ const Page = () => {
 
     return (
         <>
-            <div className='justify-center w-11/12  m-auto mt-10 border rounded-2xl'>
+            <div className='justify-center w-11/12  m-auto mt-10 border rounded-2xl bg-gray-50'>
                 <div className='flex justify-between px-5 mt-10'>
                     <div>
                         <h1 className='font-bold'>KW&SC Works Video Record Performance (Form-B)</h1>
@@ -69,10 +69,10 @@ const Page = () => {
                         </div>
                     </div>
                 </div>
-                <div className='flex px-5'>
-                    <div className=' w-1/2'>
+                <div className='flex px-5 border-y-2 mt-5'>
+                    
                         {chunkedData.map((chunk, columnIndex) => (
-                            <div key={columnIndex} className="flex flex-col gap-2">
+                            <div key={columnIndex} className="w-full">
                                 {chunk.map((item, index) => (
                                     <div key={index} className="flex">
                                         <strong className="pr-2">{item.key}:</strong>
@@ -81,10 +81,6 @@ const Page = () => {
                                 ))}
                             </div>
                         ))}
-                    </div>
-                    <div className='bg-green-50 w-1/2'>
-                        <p>Hello</p>
-                    </div>
                 </div>
             </div>
 
