@@ -5,6 +5,7 @@ import { useFormik } from 'formik';
 import * as Yup from 'yup';
 import { useVideoContext } from '../VideoContext';
 import { useToast } from "@/hooks/use-toast";
+import { Image } from 'lucide-react';
 
 
 
@@ -18,6 +19,8 @@ const VideoForm = () => {
     const { video, updateVideo } = useVideoContext();
     const { toast } = useToast();
     const [isSuccess, setIsSuccess] = useState(false);
+    const [preview, Setpreview] = useState(null);
+    const [size, Setsize] = useState(null);
     const [message, setMessage] = useState('');
 
     const formik = useFormik({
@@ -60,7 +63,7 @@ const VideoForm = () => {
                     description: '',
                     variant: 'destructive',
                 });
-            }  
+            }
             try {
                 const formData = new FormData();
                 formData.append('vid', values.vid); // Video file
@@ -103,10 +106,20 @@ const VideoForm = () => {
     const handleFileChange = (e) => {
         const file = e.target.files[0];
         if (file) {
-            console.log(file);
-            formik.setFieldValue('vid', file); // Set the file object in Formik
+            Setpreview(file); // Save the file for further processing
+            formik.setFieldValue('vid', file);
+            const path = file.path;
+            console.log(path);
+            
+            // Calculate file size in MB
+            const sizeInMB = file.size / (1024 * 1024);
+            const formattedSize = Math.round(sizeInMB * 100) / 100; // Round to 2 decimal places
+            Setsize(formattedSize);
         }
     };
+    
+
+
 
 
     return (
@@ -143,6 +156,18 @@ const VideoForm = () => {
                         {formik.values.vid && formik.values.vid.name && (
                             <div className="mt-2 text-gray-700 text-sm">
                                 <span className="font-medium">Selected File:</span> {formik.values.vid.name}
+                                <div className="font-medium">Size: {size} MB</div>
+                                {message ? (
+                                    <div className="mt-4">
+                                        <span className="font-medium">Preview:</span>
+                                        <Image src={message} alt="Video preview" className="mt-2 border rounded-md" />
+                                    </div>
+                                ) : (
+                                    <div className="mt-4">
+                                        <span className="font-medium">Preview:</span>
+                                        <p>No preview available.</p>
+                                    </div>
+                                )}
                             </div>
                         )}
                     </div>

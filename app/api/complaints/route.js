@@ -31,10 +31,10 @@ export async function GET(request) {
                         cst.subtype_name AS complaint_subtype
                         FROM main m
                         JOIN work w ON w.id = m.work_id
-                        JOIN agents a ON a.id = m.agent_id
+                        RIGHT JOIN agents a ON a.id = m.agent_id
                         JOIN town t ON w.town_id = t.id
                         JOIN complaint_types ct ON w.complaint_type_id = ct.id
-                        JOIN complaint_subtypes cst ON ct.id = cst.complaint_type_id;
+                        JOIN complaint_subtypes cst ON ct.id = cst.complaint_type_id
                         `;
 
             const result = await client.query(query);
