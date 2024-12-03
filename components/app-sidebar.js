@@ -1,7 +1,7 @@
 "use client"
 
 import { usePathname } from "next/navigation";
-import { Users, Home, ListTodo, Signature, LogOut, ChevronDown, Youtube, ChartPie } from "lucide-react";
+import { Users, Home, ListTodo, Signature, LogOut, ChevronDown, Youtube, ChartPie, Video, Archive } from "lucide-react";
 import Image from "next/image";
 import {
     Sidebar,
@@ -48,6 +48,11 @@ const items = [
         icon: Signature,
     },
     {
+        title: "Social Media Agents",
+        url: "/dashboard/socialmediaagent",
+        icon: Archive,
+    },
+    {
         title: "Reports",
         url: "/dashboard/reports",
         icon: ChartPie,
@@ -71,7 +76,7 @@ export function AppSidebar() {
                             <div className="flex items-center justify-center gap-2">
                                 <Image src="/logo.png" className="py-2 px-1" width="150" height="150" alt="logo" />
                             </div>
-                            <Card className="mb-3 bg-transparent bg-white py-1 mt-3">
+                            <Card className="mb-1 bg-transparent bg-white py-1 mt-1">
                                 <CardContent className="p-0 flex items-center gap-3 px-4 py-2">
                                     <Image src="/babar.webp" className="rounded-xl" width="40" height="40" alt="logo" />
                                     <p className="text-muted-foreground">Hassan</p>

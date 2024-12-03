@@ -32,72 +32,43 @@ const VideoForm = () => {
         validationSchema,
         enableReinitialize: true,
         onSubmit: async (values) => {
-            updateVideo(values);
-            try {
-                const response = await fetch('/api/videos', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify(values),
-                });
-                if (response.ok) {
-                    toast({
-                        title: "Video added successfully",
-                        description: '',
-                        variant: 'success',
-                    });
-                    setIsSuccess(true);
-                } else {
-                    toast({
-                        title: "Failed to add video",
-                        description: '',
-                        variant: 'destructive',
-                    });
-                }
-
-            } catch (error) {
-                console.error('Error submitting form:', error);
-                toast({
-                    title: "An error occurred while adding the video",
-                    description: '',
-                    variant: 'destructive',
-                });
+            const formData = new FormData();
+        
+            // Append the file to the FormData object
+            if (values.vid) {
+                formData.append('vid', values.vid); // 'vid' matches your server-side field name
             }
+        
             try {
-                const formData = new FormData();
-                formData.append('vid', values.vid); // Video file
-                formData.append('link', values.link); // Append other fields if necessary
-
                 const response = await fetch('/api/videos/upload', {
                     method: 'POST',
-                    body: formData, // Send the FormData object
+                    body: formData,
                 });
-
+        
                 if (response.ok) {
+                    const data = await response.json();
+                    console.log('Video available at:', data.path); // e.g., /uploads/1234567890-video.mp4
                     toast({
-                        title: "Video uploaded successfully",
-                        description: '',
+                        title: 'Video uploaded successfully',
+                        description: `File saved at: ${data.path}`,
                         variant: 'success',
                     });
-                    setIsSuccess(true);
                 } else {
                     toast({
-                        title: "Failed to upload video",
-                        description: '',
+                        title: 'Failed to upload video',
+                        description: 'Please try again.',
                         variant: 'destructive',
                     });
                 }
             } catch (error) {
-                console.error('Error submitting form:', error);
+                console.error('Error uploading video:', error);
                 toast({
-                    title: "An error occurred while adding the video",
-                    description: '',
+                    title: 'An error occurred',
+                    description: 'Unable to upload video.',
                     variant: 'destructive',
                 });
             }
-        },
-
+        },        
     });
 
     if (isSuccess) {
@@ -106,22 +77,17 @@ const VideoForm = () => {
     const handleFileChange = (e) => {
         const file = e.target.files[0];
         if (file) {
-            Setpreview(file); // Save the file for further processing
-            formik.setFieldValue('vid', file);
-            const path = file.path;
-            console.log(path);
-            
-            // Calculate file size in MB
+            formik.setFieldValue('vid', file); // Properly set the file
+            Setpreview(file); // Optional: Save the file for preview or further processing
+    
+            // Calculate file size for display
             const sizeInMB = file.size / (1024 * 1024);
-            const formattedSize = Math.round(sizeInMB * 100) / 100; // Round to 2 decimal places
+            const formattedSize = Math.round(sizeInMB * 100) / 100; // Round to 2 decimals
             Setsize(formattedSize);
+    
+            console.log('Selected file:', file);
         }
     };
-    
-
-
-
-
     return (
         <div className='container'>
             <form action={'/upload'} method='POST' encType="multipart/form-data" onSubmit={formik.handleSubmit} className="max-w-7xl mx-auto p-6 bg-white shadow-sm rounded-lg space-y-6 border">

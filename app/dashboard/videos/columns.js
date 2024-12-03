@@ -29,7 +29,7 @@ export const columns = [
     cell: ({ getValue }) => {
       const video_link = getValue();
       return (
-        <Link href={video_link} target="_blank" rel="noopener noreferrer">
+        <Link href={`/dashboard/videos/video/${video_link}`} target="_blank" rel="noopener noreferrer">
         <Button variant="primary">Watch</Button>
       </Link>
       );
