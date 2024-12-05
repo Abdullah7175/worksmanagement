@@ -10,24 +10,22 @@ const Page = () => {
     const { toast } = useToast();
     const params = useParams();
     const complaintId = params.id;
-    const [qrCode, setQrCode] = useState('');
-    const [qrId, setQrId] = useState(''); 
 
     
     useEffect(() => {
         const Getdata = async () => {
             if (complaintId) {
                 try {
-                    const response = await fetch(`/api/complaints/getcomplaint?id=${complaintId}`);
+                    const response = await fetch(`/api/complaints/performa?id=${complaintId}`);
                     const data = await response.json();
                     const objectArray = Object.entries(data).map(([key, value]) => ({ key, value }));
                     console.log(objectArray);
                     
                     setData(objectArray);
                 } catch (error) {
-                    console.error('Error fetching complaint data:', error);
+                    console.error('Error fetching performa data:', error);
                     toast({
-                        title: "Error fetching complaint data",
+                        title: "Error fetching performa data",
                         description: '',
                         variant: 'destructive'
                     });
@@ -51,7 +49,7 @@ const Page = () => {
                 <div className="gap-2 justify-center">
                     <Image src="/logo.png" className="sm:m-auto py-2 px-1" width="90" height="90" alt="logo" />
                     <div className='w-40 flex items-start justify-start'>
-                        <div className='items-start flex'>Ref:</div><div className='items-center gap-2'>_______</div>
+                        <div className='items-start flex'>Ref:</div><div className='items-center gap-2 border-b-4 border-black'></div>
                     </div>
                 </div>
             </div>
@@ -62,15 +60,15 @@ const Page = () => {
                 <table className='table-auto sm:w-full lg:w-1/2 border border-gray-300 rounded-lg shadow-md'>
                     <tbody>
                         {[
-                            ["Town", data[3]?.value || 'N/A'],
-                            ["ExEn", data[14]?.value || 'N/A'],
-                            ["Nature of Work", data[18]?.value || 'N/A'],
+                            ["Town", data[2]?.value || 'N/A'],
+                            ["ExEn", data[8]?.value || 'N/A'],
+                            ["Nature of Work", data[15]?.value || 'N/A'],
                             ["District", data[3]?.value || 'N/A'],
-                            ["Videographer", data[3]?.value || 'N/A'],
-                            ["Shoot Date", data[9]?.value || 'N/A'],
-                            ["Status", data[20]?.value==1?'Completed':'In Progress' || 'N/A'],
-                            ["Video Link", data[3]?.value || 'N/A'],
-                            ["B.G #", data[3]?.value || 'N/A'],
+                            ["Videographer", data[11]?.value || 'N/A'],
+                            ["Shoot Date", data[5]?.value || 'N/A'],
+                            ["Status", data[17]?.value==1?'Completed':'In Progress' || 'N/A'],
+                            ["Video Link", data[13]?.value || 'N/A'],
+                            ["B.G #", data[14]?.value || 'N/A'],
                         ].map(([label, value], index) => (
                             <tr key={index} className={index % 2 === 0 ? "bg-gray-100" : ""}>
                                 <td className='px-4 py-2 font-medium border border-gray-300'>{label}:</td>
@@ -84,17 +82,17 @@ const Page = () => {
                     <tbody>
                         {[
                             ["Work Location", data[4]?.value || 'N/A'],
-                            ["Contact", data[3]?.value || 'N/A'],
-                            ["Department", data[3]?.value || 'N/A'],
-                            ["Completion Date", data[10]?.value || 'N/A'],
-                            ["Assistant", data[14]?.value || 'N/A'],
-                            ["Geo Tag", data[11]?.value || 'N/A'],
-                            ["Contractor", data[3]?.value || 'N/A'],
+                            ["Contact", data[10]?.value || 'N/A'],
+                            ["Department", data[9]?.value || 'N/A'],
+                            ["Completion Date", data[6]?.value || 'N/A'],
+                            ["Assistant", 'Ayaan' || 'N/A'],
+                            ["Geo Tag", data[7]?.value || 'N/A'],
+                            ["Contractor", data[22]?.value || 'N/A'],
                             ["QR Code",
                             <QRCode
                             style={{ height: "auto", maxWidth: "35%", }}
                             viewBox={`0 0 150 150`}
-                             value={'data'}></QRCode> || 'N/A'],
+                             value={'link'}></QRCode> || 'N/A'],
                         ].map(([label, value], index) => (
                             <tr key={index} className={index % 2 === 0 ? "bg-gray-100" : ""}>
                                 <td className='px-4 py-2 font-medium border border-gray-300'>{label}:</td>

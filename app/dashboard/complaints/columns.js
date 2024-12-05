@@ -79,6 +79,10 @@ export const columns = [
           <DropdownMenuContent align="end">
             <DropdownMenuLabel>Actions</DropdownMenuLabel>
             <DropdownMenuItem>
+            <Link href={`/dashboard/complaints/performa/${caseID.id}`}>Generate Performa</Link>
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem>
               <Link href={`/dashboard/complaints/edit/${caseID.id}`}>Edit Complaint</Link>
             </DropdownMenuItem>
             <DropdownMenuSeparator />
@@ -86,9 +90,6 @@ export const columns = [
             <Link className="text-red-700" href={`/dashboard/complaints/delete/${caseID.id}`}>Delete Complaint</Link>
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem>
-            <Link href={`/dashboard/complaints/qrcode/${caseID.id}`}>Generate QR Code</Link>
-            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       )

@@ -44,7 +44,7 @@ export function DataTable({ columns, data, children }) {
             <div className="flex flex-col gap-4 md:flex-row md:justify-between md:items-center py-4">
                 {children}
                 <div className="flex gap-3 items-center justify-end flex-1">
-                    <Link href={"/dashboard/agents/add"}>
+                    <Link href={"/dashboard/socialmediaagent/add"}>
                         <Button variant="primary" className="border px-3">
                             <Plus /> Add Agent
                         </Button>

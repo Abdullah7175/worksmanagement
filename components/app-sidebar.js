@@ -1,7 +1,7 @@
 "use client"
 
 import { usePathname } from "next/navigation";
-import { Users, Home, ListTodo, Signature, LogOut, ChevronDown, Youtube, ChartPie, Video, Archive } from "lucide-react";
+import { Users, Home, ListTodo, Signature, LogOut, ChevronDown, Youtube, ChartPie, Archive } from "lucide-react";
 import Image from "next/image";
 import {
     Sidebar,

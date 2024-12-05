@@ -90,7 +90,6 @@ const ComplaintForm = () => {
     const [towns, setTowns] = useState([]);
     const [filteredTowns, setFilteredTowns] = useState([]);
     const [selectedDistrict, setSelectedDistrict] = useState(null);
-    const [qrcode, setQrcode] = useState(null)
 
     const [assistant, setAssistant] = useState([]);
     const [status, setStatus] = useState([]);

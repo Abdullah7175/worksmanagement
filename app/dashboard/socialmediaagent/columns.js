@@ -24,8 +24,8 @@ export const columns = [
     header: "Name",
   },
   {
-    accessorKey: "designation",
-    header: "Designation",
+    accessorKey: "email",
+    header: "Email",
   },
   {
     accessorKey: "contact_number",
@@ -36,17 +36,9 @@ export const columns = [
     header: "Address",
   },
   {
-    accessorKey: "department",
-    header: "Department",
-  },
-  {
-    accessorKey: "email",
-    header: "Email",
-  },
-  {
     id: "actions",
     cell: ({ row }) => {
-      const agent = row.original
+      const Socialagent = row.original
 
       return (
         <DropdownMenu>
@@ -59,11 +51,11 @@ export const columns = [
           <DropdownMenuContent align="end">
             <DropdownMenuLabel>Actions</DropdownMenuLabel>
             <DropdownMenuItem>
-              <Link href={`/dashboard/agents/edit/${agent.id}`}>Edit Agent</Link>
+              <Link href={`/dashboard/socialmediaagent/edit/${Socialagent.id}`}>Edit Agent</Link>
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem>
-            <Link className="text-red-700" href={`/dashboard/agents/delete/${agent.id}`}>Delete Agent</Link>
+            <Link className="text-red-700" href={`/dashboard/socialmediaagent/delete/${Socialagent.id}`}>Delete Agent</Link>
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
