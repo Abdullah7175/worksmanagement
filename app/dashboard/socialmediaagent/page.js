@@ -10,18 +10,17 @@ export default function Page() {
   useEffect(() => {
     const fetchVideos = async () => {
       try {
-        const response = await fetch('/api/videos/getinfo', { method: 'GET' });
-
+        const response = await fetch('/api/socialmediaperson', { method: 'GET' });
         if (response.ok) {
           const data = await response.json();
-          console.log('Fetched Videos:', data);
+          console.log('Fetched Videographer:', data);
           setVideos(data);
         } else {
-          setError('Failed to fetch Videos');
+          setError('Failed to fetch Videographer');
         }
       } catch (error) {
-        console.error('Error fetching Videos:', error);
-        setError('Error fetching Videos');
+        console.error('Error fetching Videographer:', error);
+        setError('Error fetching Videographer');
       } finally {
         setLoading(false);
       }
