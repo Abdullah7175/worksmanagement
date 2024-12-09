@@ -1,13 +1,20 @@
 import { NextResponse } from 'next/server';
 import { jwtVerify } from 'jose'; // Use the jose library for JWT verification
-import { cookies } from 'next/headers';  // Use next/headers to access cookies
+import { cookies } from 'next/headers'; // Use next/headers to access cookies
 
 const SECRET_KEY = process.env.JWT_SECRET;
 
 export async function middleware(request) {
   // Get cookies asynchronously
   const cookieStore = await cookies();
-  const token = cookieStore.get('jwtToken')?.value; // Access the 'value' of the cookie
+  const tokenFromCookie = cookieStore.get('jwtToken')?.value; // Access the 'value' of the cookie
+
+  // Get token from Authorization header if present
+  const authHeader = request.headers.get('Authorization');
+  const tokenFromHeader = authHeader?.startsWith('Bearer ') ? authHeader.split(' ')[1] : null;
+
+  // Use the token from cookie or header
+  const token = tokenFromCookie || tokenFromHeader;
 
   console.log("Retrieved Token:", token); // Log token to check its value
 
