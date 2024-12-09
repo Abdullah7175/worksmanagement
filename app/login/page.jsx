@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import Cookie from "js-cookie";  // Import js-cookie
 
 const validationSchema = Yup.object({
   email: Yup.string().email("Invalid email format").required("Email is required"),
@@ -36,8 +37,14 @@ export default function SignIn() {
           body: JSON.stringify(values),
         });
 
+        // Check if the response is OK (status code 200)
         if (response.ok) {
-          const result = await response.json();
+          const data = await response.json(); // Parse the response to extract data (including token)
+          
+          // Successful login, set token in cookie
+          Cookie.set("jwtToken", data.token, { expires: 7, secure: true, sameSite: "Strict" });
+
+          // Optionally, redirect to dashboard
           window.location.href = "/dashboard"; // Redirect on successful login
         } else {
           alert("Login failed. Please check your credentials.");

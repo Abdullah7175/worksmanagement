@@ -1,12 +1,11 @@
 import { NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
 import { connectToDatabase } from '@/lib/db';
-
+import jwt from 'jsonwebtoken';
 
 export async function GET(request) {
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
-    console.log("ID", id)
 
     const client = await connectToDatabase();
 
@@ -36,6 +35,7 @@ export async function GET(request) {
 
 
 export async function POST(req) {
+    const JWT_SECRET = process.env.JWT_SECRET;
     try {
         const body = await req.json();
         const client = await connectToDatabase();
@@ -52,8 +52,23 @@ export async function POST(req) {
             body.contact,
         ]);
 
-        return NextResponse.json({ message: 'User added successfully', user: newUser[0] }, { status: 201 });
-
+        const payload = {
+            userId: newUser[0].id,
+            email: newUser[0].email,
+          };
+        const token = jwt.sign(payload, JWT_SECRET, { expiresIn: '1h' });
+        console.log(token);
+        
+        return NextResponse.json(
+            {
+              message: 'User added successfully',
+              user: newUser[0],
+              token,
+            },
+            { status: 201 }
+          );
+   
+    
     } catch (error) {
         console.error('Error saving user:', error);
         return NextResponse.json({ error: 'Error saving user' }, { status: 500 });

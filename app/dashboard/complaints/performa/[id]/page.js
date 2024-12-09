@@ -11,7 +11,7 @@ const Page = () => {
     const params = useParams();
     const complaintId = params.id;
 
-    
+
     useEffect(() => {
         const Getdata = async () => {
             if (complaintId) {
@@ -20,7 +20,7 @@ const Page = () => {
                     const data = await response.json();
                     const objectArray = Object.entries(data).map(([key, value]) => ({ key, value }));
                     console.log(objectArray);
-                    
+
                     setData(objectArray);
                 } catch (error) {
                     console.error('Error fetching performa data:', error);
@@ -49,7 +49,7 @@ const Page = () => {
                 <div className="gap-2 justify-center">
                     <Image src="/logo.png" className="sm:m-auto py-2 px-1" width="90" height="90" alt="logo" />
                     <div className='w-40 flex items-start justify-start'>
-                        <div className='items-start flex'>Ref:</div><div className='items-center gap-2 border-b-4 border-black'></div>
+                        <div className='items-start flex'>Ref:</div><div className="border-t-2 ml-2 mt-4 border-black w-full mx-auto"></div>
                     </div>
                 </div>
             </div>
@@ -66,7 +66,7 @@ const Page = () => {
                             ["District", data[3]?.value || 'N/A'],
                             ["Videographer", data[11]?.value || 'N/A'],
                             ["Shoot Date", data[5]?.value || 'N/A'],
-                            ["Status", data[17]?.value==1?'Completed':'In Progress' || 'N/A'],
+                            ["Status", data[17]?.value == 1 ? 'Completed' : 'In Progress' || 'N/A'],
                             ["Video Link", data[13]?.value || 'N/A'],
                             ["B.G #", data[14]?.value || 'N/A'],
                         ].map(([label, value], index) => (
@@ -89,10 +89,10 @@ const Page = () => {
                             ["Geo Tag", data[7]?.value || 'N/A'],
                             ["Contractor", data[22]?.value || 'N/A'],
                             ["QR Code",
-                            <QRCode
-                            style={{ height: "auto", maxWidth: "35%", }}
-                            viewBox={`0 0 150 150`}
-                             value={'link'}></QRCode> || 'N/A'],
+                                <QRCode
+                                    style={{ height: "auto", maxWidth: "35%", }}
+                                    viewBox={`0 0 150 150`}
+                                    value={'link'}></QRCode> || 'N/A'],
                         ].map(([label, value], index) => (
                             <tr key={index} className={index % 2 === 0 ? "bg-gray-100" : ""}>
                                 <td className='px-4 py-2 font-medium border border-gray-300'>{label}:</td>
@@ -102,7 +102,29 @@ const Page = () => {
                     </tbody>
                 </table>
             </div>
+            <div className='flex items-center justify-center gap-[23rem] mt-12'>
+                <div className="text-center">
+                    <div className="inline-block text-center mt-2">
+                        <div className="border-t-2 border-black w-full mx-auto mb-2"></div>
+                        <p className="text-sm mt-2 font-bold">Issued By</p>
+                    </div>
+                </div>
+
+                <div className="text-center">
+                    <div className="inline-block text-center mt-2">
+                    <div className="border-t-2 border-black w-full mx-auto mb-2"></div>
+                        <p className="text-sm mt-2 font-bold">Incharge(SWMC)</p>
+                    </div>
+                </div>
+                <div className="text-center">
+                    <div className="inline-block text-center mt-2">
+                    <div className="border-t-2 border-black w-full mx-auto mb-2"></div>
+                        <p className="text-sm mt-2 font-bold">ExEn (Name & Sign)</p>
+                    </div>
+                </div>
+            </div>
         </div>
+        
     );
 };
 

@@ -1,35 +1,38 @@
-import { NextResponse } from "next/server";
-import { NextRequest } from "next/server";
-// middleware.js
-import jwt from 'jsonwebtoken';
+import { NextResponse } from 'next/server';
+import { jwtVerify } from 'jose'; // Use the jose library for JWT verification
+import { cookies } from 'next/headers';  // Use next/headers to access cookies
 
+const SECRET_KEY = process.env.JWT_SECRET;
 
-const SECRET_KEY = process.env.JWT_SECRET || 'your-secret-key';
+export async function middleware(request) {
+  // Get cookies asynchronously
+  const cookieStore = await cookies();
+  const token = cookieStore.get('jwtToken')?.value; // Access the 'value' of the cookie
 
-export async function middleware(req) {
-    
-    
-    // const authHeader = req.headers.get('Authorization');
+  console.log("Retrieved Token:", token); // Log token to check its value
 
-    // if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    //     return new Response(JSON.stringify({ error: 'Unauthorised' }), { status: 401 });
-    // }
+  // If no token is present or it's not a string, redirect to /login
+  if (!token || typeof token !== 'string') {
+    // Redirect to login page
+    return NextResponse.redirect(new URL('/login', request.url));
+  }
 
-    // const token = authHeader.split(' ')[1];
+  // Verify the token using jose library
+  try {
+    const { payload } = await jwtVerify(token, new TextEncoder().encode(SECRET_KEY));
 
-    // try {
-    //     const decoded = jwt.verify(token, SECRET_KEY);
-    //     req.user = decoded; // Attach user details to request
-    // } catch (error) {
-    //     return new Response(JSON.stringify({ error: 'Invalid token' }), { status: 401 });
-    // }
+    // Attach the decoded user info to the request object
+    // Note: this won't be directly accessible in Next.js middleware (since Next.js doesn't provide direct request mutation like Express)
+    request.user = payload;
 
+    // Proceed to the next middleware or route handler
     return NextResponse.next();
+  } catch (error) {
+    console.error("JWT Error:", error); // Log the specific error for debugging
+    return new NextResponse('Invalid or expired token', { status: 401 });
+  }
 }
 
-export const config={
-    matcher: [
-        '/login', // Protect all routes under /admin
-    ],
-        // Protect all routes under /admin
+export const config = {
+  matcher: ['/dashboard'], // Protect these routes with authentication
 };

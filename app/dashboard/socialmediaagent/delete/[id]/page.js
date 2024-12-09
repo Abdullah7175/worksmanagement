@@ -40,7 +40,7 @@ const DeleteUserPage = () => {
         {error && <div className="text-red-600">{error}</div>}
 
         <div className="flex space-x-4">
-          <Button variant="outline" onClick={() => window.location.href = '/dashboard/agents'}>
+          <Button variant="outline" onClick={() => window.location.href = '/dashboard/socialmediaagent'}>
             Cancel
           </Button>
           <Button
