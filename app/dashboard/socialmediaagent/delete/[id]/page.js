@@ -3,7 +3,7 @@ import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { useRouter, useParams } from 'next/navigation';
 
-const DeleteUserPage = () => {
+const DeleteSocialMediaPersonPage = () => {
   const params = useParams();
   const id = params.id;
   const [loading, setLoading] = useState(false)
@@ -56,4 +56,4 @@ const DeleteUserPage = () => {
   )
 }
 
-export default DeleteUserPage
+export default DeleteSocialMediaPersonPage

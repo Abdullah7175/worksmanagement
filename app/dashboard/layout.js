@@ -1,8 +1,9 @@
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
-import { Bell } from "lucide-react"
+import { Bell, LogOut } from "lucide-react"
 import { Button } from "@/components/ui/button";
 import { Toaster } from "@/components/ui/toaster"
+import Link from "next/link";
 
 
 export default function Layout({ children }) {
@@ -16,7 +17,12 @@ export default function Layout({ children }) {
                         <h1 className="text-2xl font-semibold hidden md:block">Works Management Portal</h1>
                         <h1 className="text-2xl font-bold block md:hidden">WMP</h1>
                     </div>
-                    <div>
+                    <div className="flex gap-4">
+                        <Link href={"/logout"}>
+                        <Button variant="secondary" className="border px-3">
+                            <LogOut className="w-5 h-5" />
+                        </Button>
+                        </Link>
                         <Button variant="secondary" className="border px-3">
                             <Bell className="w-5 h-5" />
                         </Button>
