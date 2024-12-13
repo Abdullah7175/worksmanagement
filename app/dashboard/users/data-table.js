@@ -21,10 +21,12 @@ import { Button } from "@/components/ui/button"
 import { Bell, Plus } from "lucide-react"
 import Link from "next/link"
 import Image from "next/image"
+import { hasPermission,ROLES } from "@/permissions"
 
 export function DataTable({ columns, data, children }) {
     const [sorting, setSorting] = useState([])
     const [columnFilters, setColumnFilters] = useState([])
+    const user={role:1}
 
     const table = useReactTable({
         data,
@@ -38,16 +40,19 @@ export function DataTable({ columns, data, children }) {
         },
     })
 
+
     return (
         <>
             <div className="flex flex-col gap-4 md:flex-row md:justify-between md:items-center py-4">
                 {children}
                 <div className="flex gap-3 items-center justify-end flex-1">
+                 {hasPermission(user,"delete:comments")&&( 
                 <Link href={"/dashboard/users/add"}>
                     <Button variant="primary" className="border px-3">
                         <Plus/> Add User
                     </Button>
                 </Link>
+                )}
                 <Input
                     placeholder="Filter emails..."
                     value={table.getColumn("email")?.getFilterValue() || ""}
