@@ -6,8 +6,8 @@ const SECRET_KEY = process.env.JWT_SECRET;
 
 export async function middleware(request) {
   // Retrieve cookies
-  const cookieStore = cookies();
-  const tokenFromCookie = await cookieStore.get('jwtToken')?.value; // Access the 'value' of the cookie
+  const cookieStore = await cookies();
+  const tokenFromCookie =cookieStore.get('jwtToken')?.value; // Access the 'value' of the cookie
 
   // Retrieve token from Authorization header if present
   const authHeader = request.headers.get('Authorization');
@@ -54,5 +54,5 @@ export async function middleware(request) {
 }
 
 export const config = {
-  matcher: ['/dashboard', '/login'], // Protect /dashboard and handle /login
+  matcher: ['/dashboard','/dashboard/:path*', '/login'], // Protect /dashboard and handle /login
 };
