@@ -54,5 +54,5 @@ export async function middleware(request) {
 }
 
 export const config = {
-  matcher: ['/dashboard','/dashboard/:path*', '/login'], // Protect /dashboard and handle /login
+  matcher: ['/dashboard','/dashboard/:path*', '/login'],
 };

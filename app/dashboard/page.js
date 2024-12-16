@@ -9,7 +9,6 @@ import {
 import { MessageCircleWarning, Activity, CheckCheck } from "lucide-react"
 import { LineChartWithValues } from "@/components/lineChart"
 import { PieChartWithValues } from "@/components/pieChart"
-
 const page = () => {
     return (
         <div className="container mx-auto px-4 py-10">
@@ -68,7 +67,7 @@ const page = () => {
             </div>
 
             <div className="flex flex-col bg-slate-100 lg:flex-row w-full gap-8 mt-10 h-60">
-
+        
             </div>
         </div>
 

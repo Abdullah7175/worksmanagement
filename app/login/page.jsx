@@ -14,6 +14,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import Cookie from "js-cookie";  // Import js-cookie
+import { useToast } from "@/hooks/use-toast";
 
 const validationSchema = Yup.object({
   email: Yup.string().email("Invalid email format").required("Email is required"),
@@ -21,12 +22,14 @@ const validationSchema = Yup.object({
 });
 
 export default function SignIn() {
+  const {toast}= useToast();
   const formik = useFormik({
     initialValues: {
       email: "",
       password: "",
     },
     validationSchema,
+    
     onSubmit: async (values) => {
       try {
         const response = await fetch("/api/users/login", {
@@ -36,6 +39,7 @@ export default function SignIn() {
           },
           body: JSON.stringify(values),
         });
+
 
         // Check if the response is OK (status code 200)
         if (response.ok) {
@@ -48,11 +52,12 @@ export default function SignIn() {
           // Optionally, redirect to dashboard
           window.location.href = "/dashboard"; // Redirect on successful login
         } else {
+          
           alert("Login failed. Please check your credentials.");
         }
       } catch (error) {
         console.error("Login error:", error);
-        alert("An error occurred. Please try again.");
+       
       }
     },
   });
