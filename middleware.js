@@ -5,41 +5,54 @@ import { cookies } from 'next/headers'; // Use next/headers to access cookies
 const SECRET_KEY = process.env.JWT_SECRET;
 
 export async function middleware(request) {
-  // Get cookies asynchronously
-  const cookieStore = await cookies();
-  const tokenFromCookie = cookieStore.get('jwtToken')?.value; // Access the 'value' of the cookie
+  // Retrieve cookies
+  const cookieStore = cookies();
+  const tokenFromCookie = await cookieStore.get('jwtToken')?.value; // Access the 'value' of the cookie
 
-  // Get token from Authorization header if present
+  // Retrieve token from Authorization header if present
   const authHeader = request.headers.get('Authorization');
   const tokenFromHeader = authHeader?.startsWith('Bearer ') ? authHeader.split(' ')[1] : null;
 
   // Use the token from cookie or header
   const token = tokenFromCookie || tokenFromHeader;
 
-  console.log("Retrieved Token:", token); // Log token to check its value
+  console.log("Retrieved Token:", token); // Log token for debugging
 
-  // If no token is present or it's not a string, redirect to /login
+  // If no token is present or it's not a string, handle unauthenticated routes
   if (!token || typeof token !== 'string') {
-    // Redirect to login page
-    return NextResponse.redirect(new URL('/login', request.url));
+    if (request.nextUrl.pathname === '/login') {
+      return NextResponse.next(); // Allow access to the /login page
+    }
+    return NextResponse.redirect(new URL('/login', request.url)); // Redirect unauthenticated users
   }
 
-  // Verify the token using jose library
+  // Verify the token using jose
   try {
     const { payload } = await jwtVerify(token, new TextEncoder().encode(SECRET_KEY));
 
-    // Attach the decoded user info to the request object
-    // Note: this won't be directly accessible in Next.js middleware (since Next.js doesn't provide direct request mutation like Express)
-    request.user = payload;
+    // Check token expiration
+    const currentTime = Math.floor(Date.now() / 1000); // Current time in seconds
+    if (payload.exp && payload.exp < currentTime) {
+      console.log("Token expired");
+      return NextResponse.redirect(new URL('/login', request.url));
+    }
 
-    // Proceed to the next middleware or route handler
-    return NextResponse.next();
+    // Redirect logged-in users away from /login to /dashboard
+    if (request.nextUrl.pathname === '/login') {
+      return NextResponse.redirect(new URL('/dashboard', request.url));
+    }
+
+    // Optionally attach user data to the response (custom header or context handling)
+    const response = NextResponse.next();
+    response.headers.set('x-user-data', JSON.stringify(payload)); // Pass user data in custom header
+    return response;
+
   } catch (error) {
-    console.error("JWT Error:", error); // Log the specific error for debugging
-    return new NextResponse('Invalid or expired token', { status: 401 });
+    console.error("JWT Verification Error:", error); // Log specific errors
+    return NextResponse.redirect(new URL('/login', request.url));
   }
 }
 
 export const config = {
-  matcher: ['/dashboard'], // Protect these routes with authentication
+  matcher: ['/dashboard', '/login'], // Protect /dashboard and handle /login
 };

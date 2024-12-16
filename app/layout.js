@@ -1,5 +1,6 @@
 import localFont from "next/font/local";
 import { Poppins } from 'next/font/google';
+import { ToastProvider } from "@/components/ui/toast";
 import "./globals.css";
 
 const geistMono = localFont({

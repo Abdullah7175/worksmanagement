@@ -43,6 +43,7 @@ export default function SignIn() {
           
           // Successful login, set token in cookie
           Cookie.set("jwtToken", data.token, { expires: 7, secure: true, sameSite: "Strict" });
+          localStorage.setItem('jwtToken', data.token)
 
           // Optionally, redirect to dashboard
           window.location.href = "/dashboard"; // Redirect on successful login
