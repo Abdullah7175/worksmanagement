@@ -1,5 +1,5 @@
 "use client"
-
+import { UserProvider, useUserContext } from "@/context/UserContext";
 import { usePathname } from "next/navigation";
 import { Users, Home, ListTodo, Signature, LogOut, ChevronDown, Youtube, ChartPie, Archive, CircleCheck, UserRoundPen, UserIcon } from "lucide-react";
 import Image from "next/image";
@@ -81,8 +81,9 @@ const items = [
 
 export function AppSidebar() {
     const pathname = usePathname();
-
+    // const { user } = useUserContext();
     return (
+       <UserProvider>
         <Sidebar>
             <SidebarContent>
                 <SidebarGroup>
@@ -234,6 +235,7 @@ export function AppSidebar() {
             </SidebarContent>
             <SidebarFooter className="text-sm p-4 text-gray-400">&copy; copyright 2025</SidebarFooter>
         </Sidebar>
+        </UserProvider>
     );
 
 }

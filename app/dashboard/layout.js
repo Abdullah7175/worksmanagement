@@ -6,13 +6,14 @@ import { Bell, LogOut } from "lucide-react"
 import { Button } from "@/components/ui/button";
 import { Toaster } from "@/components/ui/toaster"
 import { useRouter } from "next/navigation";
-import { useState, useEffect } from "react";
+import { useState, useEffect} from "react";
+
 
 
 
 export default function Layout({ children }) {
     const [success, setSuccess] = useState(false);
-
+   
 
     const handleLogout = () => {
       // Remove JWT token from local storage
@@ -33,14 +34,15 @@ export default function Layout({ children }) {
       }
     }, [success]);
     return (
+       
         <SidebarProvider>
             <AppSidebar />
             <main className="w-full">
                 <div className="h-16 border-b w-full bg-gray-800 text-white flex items-center justify-between p-4 shadow-sm">
                     <div className="flex gap-4 items-center">
                         <SidebarTrigger />
-                        <h1 className="text-2xl font-semibold hidden md:block">Works Management Portal</h1>
-                        <h1 className="text-2xl font-bold block md:hidden">WMP</h1>
+                        <h1 className="text-2xl font-semibold hidden md:block">Video Archiving</h1>
+                        <h1 className="text-2xl font-bold block md:hidden">VAP</h1>
                     </div>
                     <div className="flex gap-4">
                         <Button onClick={handleLogout} variant="secondary" className="border px-3">
@@ -55,5 +57,6 @@ export default function Layout({ children }) {
                 <Toaster />
             </main>
         </SidebarProvider>
+      
     );
 }

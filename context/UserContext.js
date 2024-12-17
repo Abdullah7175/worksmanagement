@@ -1,27 +1,31 @@
-"use client"
-import React, { createContext, useState, useContext } from 'react';
+import { createContext, useContext, useState, useEffect } from 'react';
 
-// Create a context
-export const UserDataContext = createContext();
+const UserContext = createContext();
 
-// Create a provider component
 export const UserProvider = ({ children }) => {
-  const [user, setUser] = useState({ name: '', email: ''});
+  const [username, setUsername] = useState('');
 
-  // Function to update the user data
-  const updateUser = (newUserData) => {
-    setUser((prevUser) => ({
-      ...prevUser,
-      ...newUserData,
-    }));
-  };
+  useEffect(() => {
+    async function fetchUsername() {
+      try {
+        const response = await fetch('/api/user/login'); // Replace with dynamic ID
+        const data = await response.json();
+        if (response.ok) {
+          setUsername(data.username);
+        }
+      } catch (error) {
+        console.error('Failed to fetch username:', error);
+      }
+    }
+
+    fetchUsername();
+  }, []);
 
   return (
-    <UserDataContext.Provider value={{ user, setUser }}>
+    <UserContext.Provider value={{ username }}>
       {children}
-    </UserDataContext.Provider>
+    </UserContext.Provider>
   );
 };
 
-// Custom hook to use the user context
-export const useUserContext = () => useContext(UserDataContext);
+export const useUser = () => useContext(UserContext);
