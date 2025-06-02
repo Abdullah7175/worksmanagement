@@ -6,6 +6,7 @@ import * as Yup from 'yup';
 import { useUserContext } from './UserContext';
 import { useToast } from "@/hooks/use-toast"
 import { useRouter, useParams } from 'next/navigation';
+import Image from 'next/image';
 
 const validationSchema = Yup.object({
     name: Yup.string()
@@ -15,11 +16,13 @@ const validationSchema = Yup.object({
         .email('Invalid email format')
         .required('Email is required'),
     password: Yup.string()
-        .required('Password is required')
-        .min(3, 'Password must be at least 3 characters'),
+        .min(6, 'Password must be at least 6 characters'),
     contact: Yup.string()
         .required('Number is required')
         .min(11, 'Number must be 11 digits'),
+    role: Yup.number()
+        .required('Role is required')
+        .min(1, 'Please select a role'),
 });
 
 const UserForm = () => {
@@ -31,8 +34,11 @@ const UserForm = () => {
         name: '',
         email: '',
         password: '',
-        contact: ''
+        contact: '',
+        role: '',
+        image: null
     });
+    const [previewImage, setPreviewImage] = useState(null);
     const router = useRouter();
 
     useEffect(() => {
@@ -45,9 +51,14 @@ const UserForm = () => {
                         setInitialValues({
                             name: data.name,
                             email: data.email,
-                            password: data.password,
-                            contact: data.contact_number
+                            password: '',
+                            contact: data.contact_number,
+                            role: data.role,
+                            image: data.image
                         });
+                        if (data.image) {
+                            setPreviewImage(data.image);
+                        }
                     } else {
                         toast({
                             title: "Failed to fetch user data",
@@ -74,34 +85,40 @@ const UserForm = () => {
         validationSchema,
         enableReinitialize: true,
         onSubmit: async (values) => {
+            const formData = new FormData();
+            formData.append('id', userId);
+            formData.append('name', values.name);
+            formData.append('email', values.email);
+            formData.append('contact', values.contact);
+            formData.append('role', values.role);
+            
+            // Only append password if it was changed
+            if (values.password) {
+                formData.append('password', values.password);
+            }
+            
+            if (values.image && typeof values.image !== 'string') {
+                formData.append('image', values.image);
+            }
+
             try {
-                const response = userId
-                    ? await fetch(`/api/users`, {
-                        method: 'PUT',
-                        headers: {
-                            'Content-Type': 'application/json',
-                        },
-                        body: JSON.stringify({ ...values, id: userId }),
-                    })
-                    : await fetch('/api/users', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                        },
-                        body: JSON.stringify(values),
-                    });
+                const response = await fetch(`/api/users`, {
+                    method: 'PUT',
+                    body: formData,
+                });
 
                 if (response.ok) {
                     toast({
-                        title: userId ? "User updated successfully" : "User added successfully",
+                        title: "User updated successfully",
                         description: '',
                         variant: 'success',
                     });
                     router.push('/dashboard/users'); 
                 } else {
+                    const errorData = await response.json();
                     toast({
-                        title: userId ? "Failed to update user" : "Failed to add user",
-                        description: '',
+                        title: "Failed to update user",
+                        description: errorData.error || '',
                         variant: 'destructive',
                     });
                 }
@@ -116,9 +133,60 @@ const UserForm = () => {
         },
     });
 
+    const handleImageChange = (event) => {
+        const file = event.currentTarget.files[0];
+        if (file) {
+            formik.setFieldValue('image', file);
+            const reader = new FileReader();
+            reader.onload = () => {
+                setPreviewImage(reader.result);
+            };
+            reader.readAsDataURL(file);
+        }
+    };
+
     return (
         <div className='container'>
             <form onSubmit={formik.handleSubmit} className="max-w-7xl mx-auto p-6 bg-white shadow-sm rounded-lg space-y-6 border">
+                {/* Image Upload */}
+                <div>
+                    <label htmlFor="image" className="block text-gray-700 text-sm font-medium mb-2">
+                        Profile Image
+                    </label>
+                    <div className="flex items-center space-x-4">
+                        <div className="relative w-20 h-20 rounded-full overflow-hidden border border-gray-300">
+                        {previewImage ? (
+                            <Image 
+                            src={previewImage} 
+                            alt="Preview" 
+                            width={80}  
+                            height={80} 
+                            className="object-cover"
+                            />
+                        ) : (
+                            <div className="w-full h-full bg-gray-200 flex items-center justify-center">
+                            <span className="text-gray-500">No image</span>
+                            </div>
+                        )}
+                        </div>
+                        <input
+                            id="image"
+                            name="image"
+                            type="file"
+                            accept="image/*"
+                            onChange={handleImageChange}
+                            className="hidden"
+                        />
+                        <label 
+                            htmlFor="image"
+                            className="px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-md cursor-pointer text-sm"
+                        >
+                            Change Image
+                        </label>
+                    </div>
+                </div>
+
+                {/* Name Field */}
                 <div>
                     <label htmlFor="name" className="block text-gray-700 text-sm font-medium">Name</label>
                     <input
@@ -132,6 +200,7 @@ const UserForm = () => {
                     {formik.errors.name && formik.touched.name && <div className="text-red-600 text-sm mt-2">{formik.errors.name}</div>}
                 </div>
 
+                {/* Email Field */}
                 <div>
                     <label htmlFor="email" className="block text-gray-700 text-sm font-medium">Email</label>
                     <input
@@ -145,6 +214,7 @@ const UserForm = () => {
                     {formik.errors.email && formik.touched.email && <div className="text-red-600 text-sm mt-2">{formik.errors.email}</div>}
                 </div>
 
+                {/* Contact Field */}
                 <div>
                     <label htmlFor="contact" className="block text-gray-700 text-sm font-medium">Contact</label>
                     <input
@@ -158,6 +228,7 @@ const UserForm = () => {
                     {formik.errors.contact && formik.touched.contact && <div className="text-red-600 text-sm mt-2">{formik.errors.contact}</div>}
                 </div>
 
+                {/* Password Field */}
                 <div>
                     <label htmlFor="password" className="block text-gray-700 text-sm font-medium">Password</label>
                     <input
@@ -166,9 +237,28 @@ const UserForm = () => {
                         type="password"
                         onChange={formik.handleChange}
                         value={formik.values.password}
+                        placeholder="Leave blank to keep current password"
                         className="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                     />
                     {formik.errors.password && formik.touched.password && <div className="text-red-600 text-sm mt-2">{formik.errors.password}</div>}
+                </div>
+
+                {/* Role Field */}
+                <div>
+                    <label htmlFor="role" className="block text-gray-700 text-sm font-medium">Role</label>
+                    <select
+                        id="role"
+                        name="role"
+                        onChange={formik.handleChange}
+                        value={formik.values.role}
+                        className="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                    >
+                        <option value="">Select a role</option>
+                        <option value="1">Admin</option>
+                        <option value="2">Manager</option>
+                        <option value="3">User</option>
+                    </select>
+                    {formik.errors.role && formik.touched.role && <div className="text-red-600 text-sm mt-2">{formik.errors.role}</div>}
                 </div>
 
                 <div className='flex justify-end'>
@@ -176,7 +266,7 @@ const UserForm = () => {
                         type="submit"
                         className="px-4 py-2 mt-4 bg-indigo-600 text-white font-semibold rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                     >
-                        {userId ? "Update User" : "Add User"}
+                        Update User
                     </button>
                 </div>
             </form>

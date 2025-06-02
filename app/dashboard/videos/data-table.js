@@ -50,10 +50,10 @@ export function DataTable({ columns, data, children }) {
                         </Button>
                     </Link>
                     <Input
-                        placeholder="Filter Videos By Case Id..."
-                        value={table.getColumn("id")?.getFilterValue() || ""}
+                        placeholder="Filter Videos By Work Request ID..."
+                        value={table.getColumn("work_request_id")?.getFilterValue() || ""}
                         onChange={(event) =>
-                            table.getColumn("id")?.setFilterValue(event.target.value)
+                            table.getColumn("work_request_id")?.setFilterValue(event.target.value)
                         }
                         className="max-w-sm bg-gray-100 shadow-sm"
                     />
@@ -87,27 +87,7 @@ export function DataTable({ columns, data, children }) {
                                 >
                                     {row.getVisibleCells().map((cell) => (
                                         <TableCell key={cell.id}>
-                                            {cell.column.id === "image" ? (
-                                                cell.getValue() ? (
-                                                    <Image
-                                                        src={cell.getValue()}
-                                                        alt="User Image"
-                                                        className="w-10 h-10 object-cover rounded-full"
-                                                    />
-                                                ) : (
-                                                    <div className="w-10 h-10 bg-gray-200 rounded-full flex items-center justify-center">
-                                                        <Image
-                                                            src="https://placehold.co/100"
-                                                            width={100}
-                                                            height={100}
-                                                            alt="User Image"
-                                                            className="w-10 h-10 object-cover rounded-full"
-                                                        />
-                                                    </div>
-                                                )
-                                            ) : (
-                                                flexRender(cell.column.columnDef.cell, cell.getContext())
-                                            )}
+                                            {flexRender(cell.column.columnDef.cell, cell.getContext())}
                                         </TableCell>
                                     ))}
                                 </TableRow>

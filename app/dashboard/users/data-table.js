@@ -98,6 +98,8 @@ export function DataTable({ columns, data, children }) {
                                                     <Image
                                                         src={cell.getValue()}
                                                         alt="User Image"
+                                                        width={40}  // Add width
+                                                        height={40} // Add height
                                                         className="w-10 h-10 object-cover rounded-full"
                                                     />
                                                 ) : (

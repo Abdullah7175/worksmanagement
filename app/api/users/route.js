@@ -2,10 +2,57 @@ import { NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
 import { connectToDatabase } from '@/lib/db';
 import jwt from 'jsonwebtoken';
+import fs from 'fs/promises';
+import path from 'path';
+import { v4 as uuidv4 } from 'uuid';
+
+// Configure upload directory
+const uploadDir = path.join(process.cwd(), 'public/uploads/users');
+
+// Ensure upload directory exists
+async function ensureUploadDir() {
+  try {
+    await fs.mkdir(uploadDir, { recursive: true });
+  } catch (error) {
+    console.error('Error creating upload directory:', error);
+    throw error;
+  }
+}
+
+// Save uploaded file to disk
+async function saveUploadedFile(file) {
+  await ensureUploadDir();
+  
+  try {
+    const buffer = await file.arrayBuffer();
+    const uniqueName = `${uuidv4()}${path.extname(file.name)}`;
+    const filePath = path.join(uploadDir, uniqueName);
+    
+    await fs.writeFile(filePath, Buffer.from(buffer));
+    
+    return `/uploads/users/${uniqueName}`;
+  } catch (error) {
+    console.error('Error saving file:', error);
+    throw new Error('Failed to save file');
+  }
+}
+
+// Delete file from disk
+async function deleteFile(filePath) {
+  try {
+    if (!filePath) return;
+    
+    const fullPath = path.join(process.cwd(), 'public', filePath);
+    await fs.unlink(fullPath);
+  } catch (error) {
+    console.error('Error deleting file:', error);
+  }
+}
 
 export async function GET(request) {
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
+    const role = searchParams.get('role');
 
     const client = await connectToDatabase();
 
@@ -20,9 +67,17 @@ export async function GET(request) {
 
             return NextResponse.json(result.rows[0], { status: 200 });
         } else {
-            const query = 'SELECT * FROM users';
-            const result = await client.query(query);
-
+            let query = 'SELECT id, name, email, contact_number, role, image FROM users';
+            let params = [];
+            
+            if (role) {
+                query += ' WHERE role = $1';
+                params.push(role);
+            }
+            
+            query += ' ORDER BY created_date DESC';
+            
+            const result = await client.query(query, params);
             return NextResponse.json(result.rows, { status: 200 });
         }
     } catch (error) {
@@ -33,86 +88,139 @@ export async function GET(request) {
     }
 }
 
-
 export async function POST(req) {
     const JWT_SECRET = process.env.JWT_SECRET;
     try {
-        const body = await req.json();
+        const formData = await req.formData();
+        
+        const name = formData.get('name');
+        const email = formData.get('email');
+        const password = formData.get('password');
+        const contact = formData.get('contact');
+        const role = formData.get('role');
+        const imageFile = formData.get('image');
+
+        let imageUrl = null;
+        
+        // Handle image upload if exists
+        if (imageFile && imageFile.size > 0) {
+            imageUrl = await saveUploadedFile(imageFile);
+        }
+
         const client = await connectToDatabase();
 
         const query = `
-      INSERT INTO users (name, email, password, contact_number)
-      VALUES ($1, $2, $3, $4) RETURNING *;
-    `;
-        const hashedPassword = await bcrypt.hash(body.password, 10);
+            INSERT INTO users (name, email, password, contact_number, role, image)
+            VALUES ($1, $2, $3, $4, $5, $6) RETURNING *;
+        `;
+        
+        const hashedPassword = await bcrypt.hash(password, 10);
         const { rows: newUser } = await client.query(query, [
-            body.name,
-            body.email,
+            name,
+            email,
             hashedPassword,
-            body.contact,
+            contact,
+            role,
+            imageUrl
         ]);
 
         const payload = {
             userId: newUser[0].id,
             email: newUser[0].email,
-          };
-        const token = jwt.sign(payload, JWT_SECRET, { expiresIn: '1h' });
-        console.log(token);
+            role: newUser[0].role
+        };
         
-        return NextResponse.json(
-            {
-              message: 'User added successfully',
-              user: newUser[0],
-              token,
-            },
-            { status: 201 }
-          );
+        const token = jwt.sign(payload, JWT_SECRET, { expiresIn: '1h' });
+        
+        return NextResponse.json({
+            message: 'User added successfully',
+            user: newUser[0],
+            token,
+        }, { status: 201 });
    
-    
     } catch (error) {
         console.error('Error saving user:', error);
-        return NextResponse.json({ error: 'Error saving user' }, { status: 500 });
+        return NextResponse.json({ 
+            error: error.message || 'Error saving user' 
+        }, { status: 500 });
     }
 }
 
 export async function PUT(req) {
     try {
-        const body = await req.json();
+        const formData = await req.formData();
+        
+        const id = formData.get('id');
+        const name = formData.get('name');
+        const email = formData.get('email');
+        const contact = formData.get('contact');
+        const role = formData.get('role');
+        const imageFile = formData.get('image');
+        const password = formData.get('password');
+
         const client = await connectToDatabase();
 
-        const { id, name, email, contact, password } = body;
-
-        if (!id || !name || !email || !contact || !password) {
-            return NextResponse.json({ error: 'All fields (id, name, email, contact, password) are required' }, { status: 400 });
+        // First get current user to check if we have an existing image
+        const currentUserQuery = 'SELECT image FROM users WHERE id = $1';
+        const currentUserResult = await client.query(currentUserQuery, [id]);
+        
+        let imageUrl = currentUserResult.rows[0]?.image || null;
+        
+        // Handle image upload if a new file was provided
+        if (imageFile && imageFile.size > 0) {
+            // Delete old image if exists
+            if (imageUrl) {
+                await deleteFile(imageUrl);
+            }
+            // Save new image
+            imageUrl = await saveUploadedFile(imageFile);
         }
 
-        const query = `
-            UPDATE users 
-            SET name = $1, email = $2, contact_number = $3, password = $4 
-            WHERE id = $5
-            RETURNING *;
-        `;
-        const hashedPassword = await bcrypt.hash(password, 10);
+        let query;
+        let params;
         
-        const { rows: updatedUser } = await client.query(query, [
-            name,
-            email,
-            contact,
-            hashedPassword,
-            id
-        ]);
+        if (password) {
+            const hashedPassword = await bcrypt.hash(password, 10);
+            query = `
+                UPDATE users 
+                SET name = $1, email = $2, contact_number = $3, 
+                    role = $4, image = $5, password = $6,
+                    updated_date = CURRENT_TIMESTAMP
+                WHERE id = $7
+                RETURNING *;
+            `;
+            params = [name, email, contact, role, imageUrl, hashedPassword, id];
+        } else {
+            query = `
+                UPDATE users 
+                SET name = $1, email = $2, contact_number = $3, 
+                    role = $4, image = $5,
+                    updated_date = CURRENT_TIMESTAMP
+                WHERE id = $6
+                RETURNING *;
+            `;
+            params = [name, email, contact, role, imageUrl, id];
+        }
+
+        const { rows: updatedUser } = await client.query(query, params);
 
         if (updatedUser.length === 0) {
             return NextResponse.json({ error: 'User not found' }, { status: 404 });
         }
 
-        return NextResponse.json({ message: 'User updated successfully', user: updatedUser[0] }, { status: 200 });
+        return NextResponse.json({ 
+            message: 'User updated successfully', 
+            user: updatedUser[0] 
+        }, { status: 200 });
 
     } catch (error) {
         console.error('Error updating user:', error);
-        return NextResponse.json({ error: 'Error updating user' }, { status: 500 });
+        return NextResponse.json({ 
+            error: error.message || 'Error updating user' 
+        }, { status: 500 });
     }
 }
+
 export async function DELETE(req) {
     try {
         const body = await req.json();
@@ -123,6 +231,10 @@ export async function DELETE(req) {
         if (!id) {
             return NextResponse.json({ error: 'User Id is required' }, { status: 400 });
         }
+
+        // First get user to delete their image
+        const currentUser = await client.query('SELECT image FROM users WHERE id = $1', [id]);
+        const imageUrl = currentUser.rows[0]?.image;
 
         const query = `
             DELETE FROM users 
@@ -136,10 +248,20 @@ export async function DELETE(req) {
             return NextResponse.json({ error: 'User not found' }, { status: 404 });
         }
 
-        return NextResponse.json({ message: 'User deleted successfully', user: deletedUser[0] }, { status: 200 });
+        // Delete associated image file
+        if (imageUrl) {
+            await deleteFile(imageUrl);
+        }
+
+        return NextResponse.json({ 
+            message: 'User deleted successfully', 
+            user: deletedUser[0] 
+        }, { status: 200 });
 
     } catch (error) {
         console.error('Error deleting user:', error);
-        return NextResponse.json({ error: 'Error deleting user' }, { status: 500 });
+        return NextResponse.json({ 
+            error: error.message || 'Error deleting user' 
+        }, { status: 500 });
     }
 }

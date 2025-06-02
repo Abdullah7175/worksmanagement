@@ -1,7 +1,6 @@
 "use client"
 
 import { MoreHorizontal } from "lucide-react"
-
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -11,14 +10,43 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-
 import Link from "next/link"
+import Image from "next/image"
+
+const getRoleName = (roleId) => {
+    switch(roleId) {
+        case 1: return 'Admin';
+        case 2: return 'Manager';
+        case 3: return 'User';
+        default: return 'Unknown';
+    }
+}
 
 export const columns = [
   {
-    accessorKey: "image",
-    header: "Image",
-  },
+  accessorKey: "image",
+  header: "Image",
+  cell: ({ row }) => {
+    const imageUrl = row.getValue("image");
+    return (
+      <div className="relative w-10 h-10 rounded-full overflow-hidden">
+        {imageUrl ? (
+          <Image 
+            src={imageUrl} 
+            alt="User" 
+            width={40}  // Added width
+            height={40} // Added height
+            className="object-cover"
+          />
+        ) : (
+          <div className="w-full h-full bg-gray-200 flex items-center justify-center">
+            <span className="text-xs text-gray-500">No image</span>
+          </div>
+        )}
+      </div>
+    );
+  }
+},
   {
     accessorKey: "name",
     header: "Name",
@@ -30,6 +58,14 @@ export const columns = [
   {
     accessorKey: "contact_number",
     header: "Contact",
+  },
+  {
+    accessorKey: "role",
+    header: "Role",
+    cell: ({ row }) => {
+        const roleId = row.getValue("role");
+        return <span>{getRoleName(roleId)}</span>;
+    }
   },
   {
     id: "actions",

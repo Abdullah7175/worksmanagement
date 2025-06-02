@@ -1,7 +1,6 @@
 "use client"
 
-import { MoreHorizontal } from "lucide-react"
-
+import { MoreHorizontal ,MapPin  } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -11,37 +10,97 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-
 import Link from "next/link"
 
 export const columns = [
   {
-    accessorKey: "id",
-    header: "Case ID",
+    accessorKey: "work_request_id",
+    header: "Work Request ID",
   },
   {
-    accessorKey: "subject",
-    header: "Subject",
+    accessorKey: "address",
+    header: "Address",
   },
   {
-    accessorKey: "video_link",
-    header: "Video/Link",
-    cell: ({ getValue }) => {
-      const video_link = getValue();
+    accessorKey: "description",
+    header: "Description",
+  },
+  {
+  accessorKey: "geo_tag",
+  header: "Location",
+  cell: ({ row }) => {
+    const geoTag = row.getValue("geo_tag");
+    
+    if (geoTag?.coordinates) {
+      const [longitude, latitude] = geoTag.coordinates;
       return (
-        <Link href={`/dashboard/videos/video/${video_link}`} target="_blank" rel="noopener noreferrer">
-        <Button variant="primary">Watch</Button>
-      </Link>
+        <a 
+          href={`https://www.google.com/maps?q=${latitude},${longitude}`}
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          <Button variant="outline" size="sm">
+            <MapPin className="h-4 w-4 mr-2" />
+            View Map
+          </Button>
+        </a>
       );
+    }
+    return <span className="text-gray-400">No location</span>;
+  },
+},
+{
+  accessorKey: "location", // dummy, not used in display
+  header: "Location",
+  cell: ({ row }) => {
+    const lat = row.original.latitude;
+    const lng = row.original.longitude;
+
+    if (lat && lng) {
+      return (
+        <a 
+          href={`https://www.google.com/maps?q=${lat},${lng}`} 
+          target="_blank" 
+          rel="noopener noreferrer"
+        >
+          <Button variant="outline" size="sm">
+            <MapPin className="h-4 w-4 mr-2" />
+            View Map
+          </Button>
+        </a>
+      );
+    }
+
+    return <span className="text-gray-400">No location</span>;
+  }
+},
+  {
+    accessorKey: "link",
+    header: "Video",
+    cell: ({ row }) => {
+      const video = row.original;
+      return (
+        <Link href={video.link} target="_blank" rel="noopener noreferrer">
+          <Button variant="primary">Watch</Button>
+        </Link>
+      );
+    },
+  },
+  {
+    accessorKey: "created_at",
+    header: "Uploaded On",
+    cell: ({ getValue }) => {
+      const date = new Date(getValue());
+      return date.toLocaleDateString();
     },
   },
   {
     id: "actions",
     cell: ({ row }) => {
-      const video = row.original
+      const video = row.original;
 
       return (
-        <div className="text-right"> {/* Apply the style here */}
+        <div className="text-right">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" className="h-8 w-8 p-0">
@@ -52,11 +111,13 @@ export const columns = [
             <DropdownMenuContent align="end">
               <DropdownMenuLabel>Actions</DropdownMenuLabel>
               <DropdownMenuItem>
-                <Link href={`/dashboard/videos/edit/${video.video_id}`}>Edit Video</Link>
+                <Link href={`/dashboard/videos/edit/${video.id}`}>Edit Video</Link>
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem>
-                <Link className="text-red-700" href={`/dashboard/videos/delete/${video.video_id}`}>Delete Video</Link>
+                <Link className="text-red-700" href={`/dashboard/videos/delete/${video.id}`}>
+                  Delete Video
+                </Link>
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
