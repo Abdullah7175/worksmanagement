@@ -125,6 +125,10 @@
 //     </div>
 //   );
 // }
+
+
+
+//app\login\page.jsx
 "use client";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
@@ -140,10 +144,10 @@ import { signIn } from "next-auth/react";
 
 const validationSchema = Yup.object({
   email: Yup.string().email("Invalid email format").required("Email is required"),
-  password: Yup.string().required("Password is required").min(3, "Password must be at least 3 characters"),
+  password: Yup.string().required("Password is required").min(6, "Password must be at least 6 characters"),
 });
 
-export default function SignIn() {
+export default function LoginPage() {
   const router = useRouter();
   const { toast } = useToast();
 
@@ -154,44 +158,41 @@ export default function SignIn() {
     },
     validationSchema,
     onSubmit: async (values) => {
-      try {
-        const result = await signIn("credentials", {
-          redirect: false,
-          email: values.email,
-          password: values.password,
-        });
+      const result = await signIn("credentials", {
+        redirect: false,
+        email: values.email,
+        password: values.password,
+      });
 
-        if (result?.error) {
-          throw new Error(result.error);
-        }
-
-        if (result?.ok) {
-          // Get the session to determine user type
-          const sessionResponse = await fetch('/api/auth/session');
-          const session = await sessionResponse.json();
-          
-          if (!session?.user?.userType) {
-            throw new Error("Unable to determine user type");
-          }
-
-          // Redirect based on user type
-          switch(session.user.userType) {
-            case 'agents':
-              router.push('/agent-dashboard');
-              break;
-            case 'socialmediaperson':
-              router.push('/media-dashboard');
-              break;
-            default:
-              router.push('/dashboard');
-          }
-        }
-      } catch (error) {
+      if (result?.error) {
         toast({
           title: "Login Failed",
-          description: error.message,
-          variant: "destructive"
+          description: result.error,
+          variant: "destructive",
         });
+        return;
+      }
+
+      if (result?.ok) {
+        // Store token in localStorage (optional)
+        const sessionRes = await fetch("/api/auth/session");
+        const session = await sessionRes.json();
+        
+        if (session?.accessToken) {
+          localStorage.setItem("jwtToken", session.accessToken);
+        }
+
+        // Redirect based on user type
+        switch (session.user?.userType) {
+          case "agents":
+            router.push("/agent-dashboard");
+            break;
+          case "socialmediaperson":
+            router.push("/media-dashboard");
+            break;
+          default:
+            router.push("/dashboard");
+        }
       }
     },
   });

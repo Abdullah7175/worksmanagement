@@ -51,6 +51,7 @@
 //     return NextResponse.json({ error: "Error during login" }, { status: 500 });
 //   }
 // }
+//app\api\users\login\route.js
 import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { connectToDatabase } from "@/lib/db";
@@ -62,8 +63,8 @@ export async function POST(req) {
   try {
     const client = await connectToDatabase();
 
-    // Check in all three tables
-    const queries = [
+    // Check in all user tables
+    const userTypes = [
       { table: 'users', query: 'SELECT * FROM users WHERE email = $1' },
       { table: 'agents', query: 'SELECT * FROM agents WHERE email = $1' },
       { table: 'socialmediaperson', query: 'SELECT * FROM socialmediaperson WHERE email = $1' }
@@ -72,7 +73,7 @@ export async function POST(req) {
     let user = null;
     let userType = null;
 
-    for (const { table, query } of queries) {
+    for (const { table, query } of userTypes) {
       const result = await client.query(query, [email]);
       if (result.rows.length > 0) {
         user = result.rows[0];
@@ -84,49 +85,48 @@ export async function POST(req) {
     if (!user) {
       return NextResponse.json(
         { error: "Invalid email or password" },
-        { status: 401, headers: { 'Content-Type': 'application/json' } }
+        { status: 401 }
       );
     }
 
     // Verify password
-    const isPasswordValid = await bcrypt.compare(password, user.password);
-    if (!isPasswordValid) {
+    const isValid = await bcrypt.compare(password, user.password);
+    if (!isValid) {
       return NextResponse.json(
         { error: "Invalid email or password" },
-        { status: 401, headers: { 'Content-Type': 'application/json' } }
+        { status: 401 }
       );
     }
 
-    // Generate JWT token with user type information
-    const payload = { 
-      userId: user.id, 
-      email: user.email,
-      userType, // 'users', 'agents', or 'socialmediaperson'
-      role: user.role 
-    };
-
-    const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: "1h" });
+    // Create JWT token
+    const token = jwt.sign(
+      {
+        userId: user.id,
+        email: user.email,
+        role: user.role,
+        userType
+      },
+      process.env.JWT_SECRET,
+      { expiresIn: "1h" }
+    );
 
     return NextResponse.json({
       message: "Login successful",
+      token,
       user: {
         id: user.id,
         name: user.name,
         email: user.email,
         role: user.role,
         userType
-      },
-      token
-    }, {
-      status: 200,
-      headers: { 'Content-Type': 'application/json' }
+      }
     });
 
   } catch (error) {
-    console.error("Error during login:", error);
+    console.error("Login error:", error);
     return NextResponse.json(
       { error: "Internal server error" },
-      { status: 500, headers: { 'Content-Type': 'application/json' } }
+      { status: 500 }
     );
   }
 }

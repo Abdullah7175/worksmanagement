@@ -1,3 +1,4 @@
+//pages\api\auth\csrf\route.js
 import { getCsrfToken } from "next-auth/react";
 
 export async function GET() {

@@ -60,6 +60,8 @@
       
 //     );
 // }
+
+//app\dashboard\layout.js
 "use client"
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
@@ -70,19 +72,12 @@ import { useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
 
 export default function Layout({ children }) {
-    const [success, setSuccess] = useState(false);
+    const router = useRouter();
    
-    // const handleLogout = () => {
-    //   localStorage.removeItem("jwtToken");
-    //   document.cookie = "jwtToken=; path=/; expires=Thu, 01 Jan 1970 00:00:00 UTC;";
-    //   setSuccess(true);
-    // };
-  
-    // useEffect(() => {
-    //   if (success) {
-    //     window.location.href = '/login';
-    //   }
-    // }, [success]);
+    const handleLogout = async () => {
+      await signOut({ redirect: false });
+      router.push('/login');
+    };
 
     return (
         <SidebarProvider>
