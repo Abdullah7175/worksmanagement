@@ -5,46 +5,56 @@ import { connectToDatabase } from '@/lib/db';
 export async function GET(request) {
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
-
     const client = await connectToDatabase();
-
-    try {
-        if (id) {
+    if (id) {
+        try {
             const query = 'SELECT * FROM complaint_types WHERE id = $1';
             const result = await client.query(query, [id]);
-
             if (result.rows.length === 0) {
                 return NextResponse.json({ error: 'Types not found' }, { status: 404 });
             }
-
             return NextResponse.json(result.rows[0], { status: 200 });
-        } else {
-            const query = `
-                        SELECT 
-                        w.id AS id,
-                        w.subject AS subject,
-                        w.survey_date AS survey_date,
-                        w.status AS status,
-                        t.town AS town,
-                        a.name AS agent,
-                        ct.type_name AS complaint_type,
-                        cst.subtype_name AS complaint_subtype
-                        FROM main m
-                        JOIN work w ON w.id = m.work_id
-                        JOIN agents a ON a.id = m.agent_id
-                        JOIN town t ON w.town_id = t.id
-                        JOIN complaint_types ct ON w.complaint_type_id = ct.id
-                        JOIN complaint_subtypes cst ON ct.id = cst.complaint_type_id;
-                        `;
-
-            const result = await client.query(query);
-            return NextResponse.json(result.rows, { status: 200 });
+        } catch (error) {
+            console.error('Error fetching data:', error);
+            return NextResponse.json({ error: 'Failed to fetch data' }, { status: 500 });
+        } finally {
+            client.release && client.release();
         }
-    } catch (error) {
-        console.error('Error fetching data:', error);
-        return NextResponse.json({ error: 'Failed to fetch data' }, { status: 500 });
-    } finally {
-        client.release && client.release();
+    } else {
+        // Paginated list
+        const page = parseInt(searchParams.get('page') || '1', 10);
+        const limit = parseInt(searchParams.get('limit') || '20', 10);
+        const offset = (page - 1) * limit;
+        try {
+            const countResult = await client.query('SELECT COUNT(*) FROM main');
+            const total = parseInt(countResult.rows[0].count, 10);
+            const query = `
+                SELECT 
+                w.id AS id,
+                w.subject AS subject,
+                w.survey_date AS survey_date,
+                w.status AS status,
+                t.town AS town,
+                a.name AS agent,
+                ct.type_name AS complaint_type,
+                cst.subtype_name AS complaint_subtype
+                FROM main m
+                JOIN work w ON w.id = m.work_id
+                JOIN agents a ON a.id = m.agent_id
+                JOIN town t ON w.town_id = t.id
+                JOIN complaint_types ct ON w.complaint_type_id = ct.id
+                JOIN complaint_subtypes cst ON ct.id = cst.complaint_type_id
+                ORDER BY w.id DESC
+                LIMIT $1 OFFSET $2;
+            `;
+            const result = await client.query(query, [limit, offset]);
+            return NextResponse.json({ data: result.rows, total }, { status: 200 });
+        } catch (error) {
+            console.error('Error fetching data:', error);
+            return NextResponse.json({ error: 'Failed to fetch data' }, { status: 500 });
+        } finally {
+            client.release && client.release();
+        }
     }
 }
 

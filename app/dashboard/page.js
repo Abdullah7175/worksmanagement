@@ -1,3 +1,4 @@
+"use client";
 import {
     Card,
     CardContent,
@@ -9,7 +10,8 @@ import {
 import { MessageCircleWarning, Activity, CheckCheck } from "lucide-react"
 import { LineChartWithValues } from "@/components/lineChart"
 import { PieChartWithValues } from "@/components/pieChart"
-import MapComponent from "@/components/MapComponent"
+import dynamic from "next/dynamic";
+const MapComponent = dynamic(() => import("@/components/MapComponent"), { ssr: false });
 
 // import dynamic from 'next/dynamic';
 

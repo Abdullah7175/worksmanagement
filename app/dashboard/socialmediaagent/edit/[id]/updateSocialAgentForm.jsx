@@ -18,6 +18,8 @@ const validationSchema = Yup.object({
         .min(11, 'Number must be 11 digits'),
     address: Yup.string()
         .min(3, 'Address must be at least 3 characters'),
+    role: Yup.number().required('Role is required'),
+    image: Yup.mixed(),
 });
 
 const SocialAgentForm = () => {
@@ -27,13 +29,22 @@ const SocialAgentForm = () => {
     const { toast } = useToast();
     const [initialValues, setInitialValues] = useState({
         name: '',
-        designation: '',
+        email: '',
         contact: '',
         address: '',
-        department: '',
-        email: '',
+        role: '',
     });
     const router = useRouter();
+
+    // Social Media Agent role options
+    const socialAgentRoles = [
+        { value: 1, label: 'Camera Man' },
+        { value: 2, label: 'Helper' },
+        { value: 3, label: 'Photographer' },
+        { value: 4, label: 'Video Editor' },
+        { value: 5, label: 'Content Creator' },
+        { value: 6, label: 'Social Media Manager' }
+    ];
 
     useEffect(() => {
         const fetchAgent = async () => {
@@ -47,6 +58,7 @@ const SocialAgentForm = () => {
                             email: data.email,
                             contact: data.contact_number,
                             address: data.address,
+                            role: data.role,
                         });
                     } else {
                         toast({
@@ -75,20 +87,24 @@ const SocialAgentForm = () => {
         enableReinitialize: true,
         onSubmit: async (values) => {
             try {
+                const formData = new FormData();
+                for (const key in values) {
+                    if (key !== 'image') {
+                        formData.append(key, values[key]);
+                    }
+                }
+                if (values.image) {
+                    formData.append('image', values.image);
+                }
+
                 const response = socialagentId
-                    ? await fetch(`/api/socialmediaperson`, {
+                    ? await fetch(`/api/socialmediaperson/${socialagentId}`, {
                         method: 'PUT',
-                        headers: {
-                            'Content-Type': 'application/json',
-                        },
-                        body: JSON.stringify({ ...values, id: socialagentId }),
+                        body: formData,
                     })
                     : await fetch('/api/socialmediaperson', {
                         method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                        },
-                        body: JSON.stringify(values),
+                        body: formData,
                     });
 
                 if (response.ok) {
@@ -116,9 +132,13 @@ const SocialAgentForm = () => {
         },
     });
 
+    const handleImageChange = (e) => {
+        formik.setFieldValue('image', e.currentTarget.files[0]);
+    };
+
     return (
         <div className='container'>
-            <form onSubmit={formik.handleSubmit} className="max-w-7xl mx-auto p-6 bg-white shadow-sm rounded-lg space-y-6 border">
+            <form onSubmit={formik.handleSubmit} className="max-w-7xl mx-auto p-6 bg-white shadow-sm rounded-lg space-y-6 border" encType="multipart/form-data">
                 <div>
                     <label htmlFor="name" className="block text-gray-700 text-sm font-medium">Name</label>
                     <input
@@ -169,6 +189,38 @@ const SocialAgentForm = () => {
                         className="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                     />
                     {formik.errors.password && formik.touched.address && <div className="text-red-600 text-sm mt-2">{formik.errors.address}</div>}
+                </div>
+
+                <div>
+                    <label htmlFor="role" className="block text-gray-700 text-sm font-medium">Role</label>
+                    <select
+                        id="role"
+                        name="role"
+                        onChange={formik.handleChange}
+                        value={formik.values.role}
+                        className="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-md"
+                    >
+                        <option value="">Select a role...</option>
+                        {socialAgentRoles.map((role) => (
+                            <option key={role.value} value={role.value}>
+                                {role.label}
+                            </option>
+                        ))}
+                    </select>
+                    {formik.errors.role && formik.touched.role && <div className="text-red-600 text-sm mt-2">{formik.errors.role}</div>}
+                </div>
+
+                <div>
+                    <label htmlFor="image" className="block text-gray-700 text-sm font-medium">Image (optional)</label>
+                    <input
+                        id="image"
+                        name="image"
+                        type="file"
+                        accept="image/*"
+                        onChange={handleImageChange}
+                        className="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-md"
+                    />
+                    {formik.errors.image && formik.touched.image && <div className="text-red-600 text-sm mt-2">{formik.errors.image}</div>}
                 </div>
 
                 <div className='flex justify-end'>

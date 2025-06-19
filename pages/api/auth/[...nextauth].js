@@ -1,138 +1,112 @@
-
-//pages\api\auth\[...nextauth].js
+// pages/api/auth/[...nextauth].js
 import NextAuth from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
+import bcrypt from "bcryptjs";
+import { connectToDatabase } from '@/lib/db';
 
-export const handler = NextAuth({
+export const authOptions = {
   providers: [
     CredentialsProvider({
       name: "Credentials",
       credentials: {
-        username: { label: "Email", type: "text", placeholder: "jsmith" },
-        password: { label: "Password", type: "password" },
+        email: { label: "Email", type: "text" },
+        password: { label: "Password", type: "password" }
       },
       async authorize(credentials) {
-        console.log("Authorization started...");
-        console.log("Received credentials:", credentials);
-        
+        let client;
         try {
-          const res = await fetch(`${process.env.NEXTAUTH_URL}/api/auth/`, {
-            method: "POST",
-            body: JSON.stringify(credentials),
-            headers: { "Content-Type": "application/json" },
-          });
+          console.log("Starting authentication for:", credentials.email);
+          client = await connectToDatabase();
+          console.log("Database connected successfully");
 
-          console.log("API response status:", res.status);
+          // Check in all user tables
+          const userTypes = [
+            { table: 'users', query: 'SELECT * FROM users WHERE email = $1' },
+            { table: 'agents', query: 'SELECT * FROM agents WHERE email = $1' },
+            { table: 'socialmediaperson', query: 'SELECT * FROM socialmediaperson WHERE email = $1' }
+          ];
 
-          if (!res.ok) {
-            console.error("Failed to authenticate user:", await res.text());
+          let user = null;
+          let userType = null;
+
+          for (const { table, query } of userTypes) {
+            console.log(`Checking ${table} table...`);
+            const result = await client.query(query, [credentials.email]);
+            if (result.rows.length > 0) {
+              user = result.rows[0];
+              userType = table;
+              console.log(`User found in ${table} table`);
+              break;
+            }
+          }
+
+          if (!user) {
+            console.error("User not found:", credentials.email);
             return null;
           }
 
-          const user = await res.json();
+          // Verify password
+          console.log("Verifying password...");
+          const isValid = await bcrypt.compare(credentials.password, user.password);
+          if (!isValid) {
+            console.error("Invalid password for user:", credentials.email);
+            return null;
+          }
 
-          console.log("Received user from API:", user);
+          console.log("Password verified successfully");
+          console.log("User authenticated:", { id: user.id, name: user.name, userType });
 
-          return user ? user : null;
+          // Return user data for NextAuth
+          return {
+            id: user.id,
+            name: user.name,
+            email: user.email,
+            role: user.role,
+            userType: userType
+          };
 
         } catch (error) {
-          console.error("Error during authorization:", error);
+          console.error("Authentication error:", error.message);
+          console.error("Full error:", error);
           return null;
+        } finally {
+          if (client && client.release) {
+            client.release();
+          }
         }
-      },
-    }),
+      }
+    })
   ],
   pages: {
-    signIn: "/login", // Custom sign-in page
+    signIn: "/login",
+    error: "/login"
   },
-  secret: process.env.NEXTAUTH_SECRET, // Secret for encryption
-});
+  secret: process.env.NEXTAUTH_SECRET || "your-secret-key-here-make-it-long-and-random",
+  session: {
+    strategy: "jwt",
+    maxAge: 60 * 60 // 1 hour
+  },
+  callbacks: {
+    async jwt({ token, user }) {
+      if (user) {
+        token.user = {
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          role: user.role,
+          userType: user.userType
+        };
+      }
+      return token;
+    },
+    async session({ session, token }) {
+      session.user = token.user;
+      return session;
+    }
+  }
+};
 
-export { handler as GET, handler as POST };
-
-
-// pages/api/auth/[...nextauth].js
-// import NextAuth from "next-auth";
-// import CredentialsProvider from "next-auth/providers/credentials";
-// import jwt from "jsonwebtoken";
-
-// export const authOptions = {
-//   providers: [
-//     CredentialsProvider({
-//       name: "Credentials",
-//       credentials: {
-//         email: { label: "Email", type: "text" },
-//         password: { label: "Password", type: "password" }
-//       },
-//       async authorize(credentials) {
-//         try {
-//           const response = await fetch(`${process.env.NEXTAUTH_URL}/api/users/login`, {
-//             method: "POST",
-//             body: JSON.stringify(credentials),
-//             headers: { "Content-Type": "application/json" }
-//           });
-
-//           const data = await response.json();
-
-//           if (!response.ok) {
-//             throw new Error(data.error || "Authentication failed");
-//           }
-
-//           if (!data.token) {
-//             throw new Error("No token received");
-//           }
-
-//           // Verify the JWT token
-//           const decoded = jwt.verify(data.token, process.env.JWT_SECRET);
-          
-//           return {
-//             id: decoded.userId,
-//             name: decoded.name || decoded.email,
-//             email: decoded.email,
-//             role: decoded.role,
-//             userType: decoded.userType,
-//             token: data.token // Include the token in the user object
-//           };
-
-//         } catch (error) {
-//           console.error("Authentication error:", error.message);
-//           return null;
-//         }
-//       }
-//     })
-//   ],
-//   pages: {
-//     signIn: "/login",
-//     error: "/login"
-//   },
-//   secret: process.env.NEXTAUTH_SECRET,
-//   session: {
-//     strategy: "jwt",
-//     maxAge: 60 * 60 // 1 hour
-//   },
-//   callbacks: {
-//     async jwt({ token, user }) {
-//       if (user) {
-//         token.user = {
-//           id: user.id,
-//           name: user.name,
-//           email: user.email,
-//           role: user.role,
-//           userType: user.userType
-//         };
-//         token.accessToken = user.token;
-//       }
-//       return token;
-//     },
-//     async session({ session, token }) {
-//       session.user = token.user;
-//       session.accessToken = token.accessToken;
-//       return session;
-//     }
-//   }
-// };
-
-// export default NextAuth(authOptions);
+export default NextAuth(authOptions);
 
 
 

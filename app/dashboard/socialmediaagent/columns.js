@@ -14,6 +14,19 @@ import {
 
 import Link from "next/link"
 
+// Function to get role label
+const getRoleLabel = (role) => {
+  const roles = {
+    1: 'Camera Man',
+    2: 'Helper',
+    3: 'Photographer',
+    4: 'Video Editor',
+    5: 'Content Creator',
+    6: 'Social Media Manager'
+  };
+  return roles[role] || 'Unknown';
+};
+
 export const columns = [
   {
     accessorKey: "image",
@@ -34,6 +47,14 @@ export const columns = [
   {
     accessorKey: "address",
     header: "Address",
+  },
+  {
+    accessorKey: "role",
+    header: "Role",
+    cell: ({ row }) => {
+      const role = row.getValue("role");
+      return <span>{getRoleLabel(role)}</span>;
+    },
   },
   {
     id: "actions",

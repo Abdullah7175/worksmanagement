@@ -123,6 +123,10 @@ export async function GET(request) {
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
     const workRequestId = searchParams.get('workRequestId');
+    const page = parseInt(searchParams.get('page') || '1', 10);
+    const limit = parseInt(searchParams.get('limit') || '0', 10);
+    const offset = (page - 1) * limit;
+    const filter = searchParams.get('filter') || '';
     const client = await connectToDatabase();
 
     try {
@@ -150,6 +154,22 @@ export async function GET(request) {
             `;
             const result = await client.query(query, [workRequestId]);
             return NextResponse.json(result.rows, { status: 200 });
+        } else if (limit > 0) {
+            // Paginated with optional filter
+            let countQuery = 'SELECT COUNT(*) FROM videos';
+            let dataQuery = `SELECT v.*, wr.request_date, wr.address ,ST_Y(v.geo_tag) as latitude,ST_X(v.geo_tag) as longitude FROM videos v JOIN work_requests wr ON v.work_request_id = wr.id`;
+            let params = [];
+            if (filter) {
+                countQuery += ' WHERE v.description ILIKE $1 OR CAST(v.work_request_id AS TEXT) ILIKE $1';
+                dataQuery += ' WHERE v.description ILIKE $1 OR CAST(v.work_request_id AS TEXT) ILIKE $1';
+                params = [`%${filter}%`];
+            }
+            dataQuery += ' ORDER BY v.created_at DESC LIMIT $2 OFFSET $3';
+            const countResult = filter ? await client.query(countQuery, params) : await client.query(countQuery);
+            const total = parseInt(countResult.rows[0].count, 10);
+            const dataParams = filter ? [...params, limit, offset] : [limit, offset];
+            const result = await client.query(dataQuery, dataParams);
+            return NextResponse.json({ data: result.rows, total }, { status: 200 });
         } else {
             const query = `
                 SELECT v.*, wr.request_date, wr.address ,ST_Y(v.geo_tag) as latitude,ST_X(v.geo_tag) as longitude
@@ -167,6 +187,7 @@ export async function GET(request) {
         client.release && client.release();
     }
 }
+
 export async function POST(req) {
     try {
         const body = await req.json();

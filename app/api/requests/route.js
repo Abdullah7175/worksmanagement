@@ -4,16 +4,19 @@ import { connectToDatabase } from '@/lib/db';
 export async function GET(request) {
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
-
+    const creator_id = searchParams.get('creator_id');
+    const creator_type = searchParams.get('creator_type');
+    const page = parseInt(searchParams.get('page') || '1', 10);
+    const limit = parseInt(searchParams.get('limit') || '0', 10);
+    const offset = (page - 1) * limit;
+    const filter = searchParams.get('filter') || '';
     if (id && !Number.isInteger(Number(id))) {
         return NextResponse.json(
             { error: 'Invalid request ID format' },
             { status: 400 }
         );
     }
-
     const client = await connectToDatabase();
-
     try {
         if (id) {
             const numericId = Number(id);
@@ -26,31 +29,20 @@ export async function GET(request) {
                     st.subtown as subtown_name,
                     ct.type_name as complaint_type,
                     cst.subtype_name as complaint_subtype,
-                    u.name as applicant_name,
+                    COALESCE(u.name, ag.name, sm.name) as creator_name,
+                    wr.creator_type,
                     a.name as assigned_to_name,
                     s.name as status_name,
                     (
                         SELECT json_agg(json_build_object(
-                            'id', ra.id,
-                            'agent_id', ra.agent_id,
-                            'agent_name', ag.name,
-                            'status', ra.status,
-                            'created_at', ra.created_at
-                        ))
-                        FROM request_assign_agent ra
-                        JOIN agents ag ON ra.agent_id = ag.id
-                        WHERE ra.work_requests_id = wr.id
-                    ) as assigned_agents,
-                    (
-                        SELECT json_agg(json_build_object(
                             'id', rs.id,
                             'sm_agent_id', rs.socialmedia_agent_id,
-                            'sm_agent_name', sm.name,
+                            'sm_agent_name', sm_assign.name,
                             'status', rs.status,
                             'created_at', rs.created_at
                         ))
                         FROM request_assign_smagent rs
-                        JOIN socialmediaperson sm ON rs.socialmedia_agent_id = sm.id
+                        JOIN socialmediaperson sm_assign ON rs.socialmedia_agent_id = sm_assign.id
                         WHERE rs.work_requests_id = wr.id
                     ) as assigned_sm_agents
                 FROM work_requests wr
@@ -58,7 +50,9 @@ export async function GET(request) {
                 LEFT JOIN subtown st ON wr.subtown_id = st.id
                 LEFT JOIN complaint_types ct ON wr.complaint_type_id = ct.id
                 LEFT JOIN complaint_subtypes cst ON wr.complaint_subtype_id = cst.id
-                LEFT JOIN users u ON wr.applicant_id = u.id
+                LEFT JOIN users u ON wr.creator_type = 'user' AND wr.creator_id = u.id
+                LEFT JOIN agents ag ON wr.creator_type = 'agent' AND wr.creator_id = ag.id
+                LEFT JOIN socialmediaperson sm ON wr.creator_type = 'socialmedia' AND wr.creator_id = sm.id
                 LEFT JOIN users a ON wr.assigned_to = a.id
                 LEFT JOIN status s ON wr.status_id = s.id
                 WHERE wr.id = $1
@@ -70,6 +64,51 @@ export async function GET(request) {
             }
 
             return NextResponse.json(result.rows[0], { status: 200 });
+        } else if (limit > 0) {
+            // Paginated with optional filter and creator filters
+            let countQuery = 'SELECT COUNT(*) FROM work_requests';
+            let dataQuery = `
+                SELECT 
+                    wr.id, 
+                    wr.request_date, 
+                    ST_Y(wr.geo_tag) as latitude, 
+                    ST_X(wr.geo_tag) as longitude, 
+                    t.town as town_name, 
+                    ct.type_name as complaint_type, 
+                    s.name as status_name,
+                    COALESCE(u.name, ag.name, sm.name) as creator_name,
+                    wr.creator_type
+                FROM work_requests wr 
+                LEFT JOIN town t ON wr.town_id = t.id 
+                LEFT JOIN complaint_types ct ON wr.complaint_type_id = ct.id 
+                LEFT JOIN status s ON wr.status_id = s.id 
+                LEFT JOIN users u ON wr.creator_type = 'user' AND wr.creator_id = u.id
+                LEFT JOIN agents ag ON wr.creator_type = 'agent' AND wr.creator_id = ag.id
+                LEFT JOIN socialmediaperson sm ON wr.creator_type = 'socialmedia' AND wr.creator_id = sm.id
+            `;
+            let whereClauses = [];
+            let params = [];
+            let paramIdx = 1;
+            if (creator_id && creator_type) {
+                whereClauses.push(`wr.creator_id = $${paramIdx} AND wr.creator_type = $${paramIdx + 1}`);
+                params.push(creator_id, creator_type);
+                paramIdx += 2;
+            }
+            if (filter) {
+                whereClauses.push(`(wr.address ILIKE $${paramIdx} OR u.name ILIKE $${paramIdx} OR ag.name ILIKE $${paramIdx} OR sm.name ILIKE $${paramIdx} OR ct.type_name ILIKE $${paramIdx})`);
+                params.push(`%${filter}%`);
+                paramIdx += 1;
+            }
+            if (whereClauses.length > 0) {
+                countQuery += ' WHERE ' + whereClauses.join(' AND ');
+                dataQuery += ' WHERE ' + whereClauses.join(' AND ');
+            }
+            dataQuery += ` ORDER BY wr.request_date DESC LIMIT $${paramIdx} OFFSET $${paramIdx + 1}`;
+            params.push(limit, offset);
+            const countResult = await client.query(countQuery, params.slice(0, params.length - 2));
+            const total = parseInt(countResult.rows[0].count, 10);
+            const result = await client.query(dataQuery, params);
+            return NextResponse.json({ data: result.rows, total }, { status: 200 });
         } else {
             const query = `
                 SELECT 
@@ -80,12 +119,15 @@ export async function GET(request) {
                     t.town as town_name,
                     ct.type_name as complaint_type,
                     s.name as status_name,
-                    u.name as applicant_name
+                    COALESCE(u.name, ag.name, sm.name) as creator_name,
+                    wr.creator_type
                 FROM work_requests wr
                 LEFT JOIN town t ON wr.town_id = t.id
                 LEFT JOIN complaint_types ct ON wr.complaint_type_id = ct.id
                 LEFT JOIN status s ON wr.status_id = s.id
-                LEFT JOIN users u ON wr.applicant_id = u.id
+                LEFT JOIN users u ON wr.creator_type = 'user' AND wr.creator_id = u.id
+                LEFT JOIN agents ag ON wr.creator_type = 'agent' AND wr.creator_id = ag.id
+                LEFT JOIN socialmediaperson sm ON wr.creator_type = 'socialmedia' AND wr.creator_id = sm.id
                 ORDER BY wr.request_date DESC
             `;
             const result = await client.query(query);
@@ -114,12 +156,41 @@ export async function POST(req) {
             description,
             latitude,
             longitude,
-            applicant_id
+            creator_id,
+            creator_type // 'user', 'agent', 'socialmedia'
         } = body;
+
+        // Validate creator type
+        const allowedCreatorTypes = ['user', 'agent', 'socialmedia'];
+        if (!allowedCreatorTypes.includes(creator_type)) {
+            return NextResponse.json({ 
+                error: 'Invalid creator type. Must be user, agent, or socialmedia' 
+            }, { status: 400 });
+        }
+
+        // Validate that the creator_id exists in the correct table
+        let validationQuery;
+        switch (creator_type) {
+            case 'user':
+                validationQuery = 'SELECT id FROM users WHERE id = $1';
+                break;
+            case 'agent':
+                validationQuery = 'SELECT id FROM agents WHERE id = $1';
+                break;
+            case 'socialmedia':
+                validationQuery = 'SELECT id FROM socialmediaperson WHERE id = $1';
+                break;
+        }
+
+        const validationResult = await client.query(validationQuery, [creator_id]);
+        if (validationResult.rows.length === 0) {
+            return NextResponse.json({ 
+                error: `Invalid ${creator_type} ID` 
+            }, { status: 400 });
+        }
 
         let geoTag = null;
         if (latitude && longitude) {
-            // geoTag = `POINT(${longitude} ${latitude})`;
             geoTag = `SRID=4326;POINT(${longitude} ${latitude})`;
         }
 
@@ -132,9 +203,10 @@ export async function POST(req) {
                 contact_number,
                 address,
                 description,
-                applicant_id,
+                creator_id,
+                creator_type,
                 geo_tag
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, ${geoTag ? `$9` : 'NULL'})
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, ${geoTag ? `$10` : 'NULL'})
             RETURNING id;
         `;
 
@@ -146,7 +218,8 @@ export async function POST(req) {
             contact_number,
             address,
             description,
-            applicant_id
+            creator_id,
+            creator_type
         ];
 
         if (geoTag) {
@@ -177,7 +250,6 @@ export async function PUT(req) {
             id,
             assigned_to,
             status_id,
-            assigned_agents,
             assigned_sm_agents
         } = body;
 
@@ -203,16 +275,7 @@ export async function PUT(req) {
             return NextResponse.json({ error: 'Request not found' }, { status: 404 });
         }
 
-        if (assigned_agents && assigned_agents.length > 0) {
-            await client.query('DELETE FROM request_assign_agent WHERE work_requests_id = $1', [id]);
-            for (const agent of assigned_agents) {
-                await client.query(
-                    'INSERT INTO request_assign_agent (work_requests_id, agent_id, status) VALUES ($1, $2, $3)',
-                    [id, agent.agent_id, agent.status || 1]
-                );
-            }
-        }
-
+        // Handle social media agent assignments
         if (assigned_sm_agents && assigned_sm_agents.length > 0) {
             await client.query('DELETE FROM request_assign_smagent WHERE work_requests_id = $1', [id]);
             for (const smAgent of assigned_sm_agents) {

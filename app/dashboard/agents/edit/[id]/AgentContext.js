@@ -10,7 +10,7 @@ export const AgentProvider = ({ children }) => {
 
   // Function to update the user data
   const updateAgent = (newAgentData) => {
-    setUser((prevAgent) => ({
+    setAgent((prevAgent) => ({
       ...prevAgent,
       ...newAgentData,
     }));

@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { connectToDatabase } from '@/lib/db';
 
 export async function GET(request, { params }) {
-    const { id } = params;
+    const { id } = await params;
     const client = await connectToDatabase();
 
     try {

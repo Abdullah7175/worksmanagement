@@ -1,4 +1,3 @@
-// app/dashboard/requests/[id]/edit/page.jsx
 "use client"
 
 import { useState, useEffect } from 'react';
@@ -6,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { useToast } from "@/hooks/use-toast";
 import { RequestForm } from "@/app/dashboard/requests/add/RequestForm";
 import { Button } from '@/components/ui/button';
+import { useSession } from 'next-auth/react';
 
 const EditRequestPage = () => {
     const { id } = useParams();
@@ -13,6 +13,7 @@ const EditRequestPage = () => {
     const [loading, setLoading] = useState(true);
     const { toast } = useToast();
     const router = useRouter();
+    const { data: session } = useSession();
 
     useEffect(() => {
         const fetchRequest = async () => {
@@ -39,6 +40,41 @@ const EditRequestPage = () => {
 
         fetchRequest();
     }, [id, router, toast]);
+
+    // Check if user can edit this request
+    const canEdit = () => {
+        if (!session?.user || !requestData) return false;
+        
+        const userRole = parseInt(session.user.role);
+        const userType = session.user.userType;
+        const creatorType = requestData.creator_type;
+        const creatorId = requestData.creator_id;
+        const userId = session.user.id;
+
+        // Debug logging
+        console.log('Debug - User Role:', userRole, typeof userRole);
+        console.log('Debug - User Type:', userType);
+        console.log('Debug - Creator Type:', creatorType);
+        console.log('Debug - Creator ID:', creatorId);
+        console.log('Debug - User ID:', userId);
+
+        // Admin (role = 1) can edit any request
+        if (userRole === 1) return true;
+        
+        // Manager (role = 2) can edit any request
+        if (userRole === 2) return true;
+        
+        // Users can only edit their own requests
+        if (userType === 'user' && creatorType === 'user' && creatorId === userId) return true;
+        
+        // Agents can only edit their own requests
+        if (userType === 'agent' && creatorType === 'agent' && creatorId === userId) return true;
+        
+        // Social media agents can only edit their own requests
+        if (userType === 'socialmedia' && creatorType === 'socialmedia' && creatorId === userId) return true;
+        
+        return false;
+    };
 
     const handleSubmit = async (values) => {
         try {
@@ -80,10 +116,43 @@ const EditRequestPage = () => {
         return <div className="container mx-auto py-6">Request not found</div>;
     }
 
+    if (!canEdit()) {
+        return (
+            <div className="container mx-auto py-6">
+                <div className="bg-red-50 border border-red-200 rounded-md p-4">
+                    <h2 className="text-lg font-semibold text-red-800">Access Denied</h2>
+                    <p className="text-red-600 mt-2">
+                        You don't have permission to edit this request. Only the creator, managers, and admins can edit requests.
+                    </p>
+                    <div className="mt-4 p-4 bg-gray-100 rounded">
+                        <h3 className="font-semibold">Debug Information:</h3>
+                        <p>User Role: {session?.user?.role} (type: {typeof session?.user?.role})</p>
+                        <p>User Type: {session?.user?.userType}</p>
+                        <p>User ID: {session?.user?.id}</p>
+                        <p>Creator Type: {requestData?.creator_type}</p>
+                        <p>Creator ID: {requestData?.creator_id}</p>
+                    </div>
+                    <Button 
+                        variant="outline" 
+                        onClick={() => router.push('/dashboard/requests')}
+                        className="mt-4"
+                    >
+                        Back to Requests
+                    </Button>
+                </div>
+            </div>
+        );
+    }
+
     return (
         <div className="container mx-auto py-6">
             <div className="flex items-center justify-between mb-6">
-                <h1 className="text-2xl font-bold">Edit Work Request</h1>
+                <div>
+                    <h1 className="text-2xl font-bold">Edit Work Request</h1>
+                    <p className="text-gray-600 mt-1">
+                        Created by: {requestData.creator_name} ({requestData.creator_type})
+                    </p>
+                </div>
                 <Button 
                     variant="outline" 
                     onClick={() => router.push('/dashboard/requests')}
@@ -102,6 +171,8 @@ const EditRequestPage = () => {
                     description: requestData.description,
                     latitude: requestData.latitude,
                     longitude: requestData.longitude,
+                    creator_id: requestData.creator_id,
+                    creator_type: requestData.creator_type,
                 }}
                 onSubmit={handleSubmit}
                 isEditMode={true}
@@ -110,4 +181,4 @@ const EditRequestPage = () => {
     );
 };
 
-export default EditRequestPage;
+export default EditRequestPage; 

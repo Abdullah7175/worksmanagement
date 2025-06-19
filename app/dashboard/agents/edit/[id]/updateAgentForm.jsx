@@ -22,6 +22,11 @@ const validationSchema = Yup.object({
     email: Yup.string()
         .email('Invalid email format')
         .required('Email is required'),
+    town_id: Yup.number().required('Town is required'),
+    password: Yup.string().min(6, 'Password must be at least 6 characters'),
+    complaint_type_id: Yup.number(),
+    role: Yup.number().required('Role is required'),
+    image: Yup.mixed(),
 });
 
 const AgentForm = () => {
@@ -36,8 +41,23 @@ const AgentForm = () => {
         address: '',
         department: '',
         email: '',
+        town_id: '',
+        password: '',
+        complaint_type_id: '',
+        role: '',
+        image: null,
     });
     const router = useRouter();
+    const [towns, setTowns] = useState([]);
+    const [townsLoading, setTownsLoading] = useState(true);
+    const [complaintTypes, setComplaintTypes] = useState([]);
+    const [complaintTypesLoading, setComplaintTypesLoading] = useState(true);
+
+    // Agent role options
+    const agentRoles = [
+        { value: 1, label: 'Executive Engineer' },
+        { value: 2, label: 'Contractor' }
+    ];
 
     useEffect(() => {
         const fetchAgent = async () => {
@@ -53,6 +73,11 @@ const AgentForm = () => {
                             address: data.address,
                             department: data.department,
                             email: data.email,
+                            town_id: data.town_id,
+                            password: '',
+                            complaint_type_id: data.complaint_type_id,
+                            role: data.role,
+                            image: data.image,
                         });
                     } else {
                         toast({
@@ -75,26 +100,69 @@ const AgentForm = () => {
         fetchAgent();
     }, [agentId, toast]);
 
+    useEffect(() => {
+        setTownsLoading(true);
+        fetch('/api/complaints/getinfo')
+            .then(res => res.json())
+            .then(data => {
+                // Support both town.name and town.town
+                setTowns((data.towns || []).map(town => ({
+                  id: town.id,
+                  name: town.name || town.town || town.title || "Unnamed Town"
+                })));
+                setTownsLoading(false);
+            })
+            .catch(() => setTownsLoading(false));
+    }, []);
+
+    useEffect(() => {
+        setComplaintTypesLoading(true);
+        fetch('/api/complaints/getalltypes')
+            .then(res => res.json())
+            .then(data => {
+                setComplaintTypes((data || []).map(type => ({
+                  id: Number(type.id),
+                  name: type.type_name || type.name
+                })));
+                setComplaintTypesLoading(false);
+            })
+            .catch(() => setComplaintTypesLoading(false));
+    }, []);
+
     const formik = useFormik({
-        initialValues,
+        initialValues: {
+            ...initialValues,
+            // Ensure role and complaint_type_id are numbers for dropdowns
+            role: initialValues.role ? Number(initialValues.role) : '',
+            complaint_type_id: initialValues.complaint_type_id ? Number(initialValues.complaint_type_id) : '',
+        },
         validationSchema,
         enableReinitialize: true,
         onSubmit: async (values) => {
             try {
+                const formData = new FormData();
+                for (const key in values) {
+                    if (key !== 'image') {
+                        // Ensure role and complaint_type_id are sent as numbers
+                        if (key === 'role' || key === 'complaint_type_id') {
+                          formData.append(key, Number(values[key]));
+                        } else {
+                          formData.append(key, values[key]);
+                        }
+                    }
+                }
+                if (values.image) {
+                    formData.append('image', values.image);
+                }
+
                 const response = agentId
-                    ? await fetch(`/api/agents`, {
+                    ? await fetch(`/api/agents/${agentId}`, {
                         method: 'PUT',
-                        headers: {
-                            'Content-Type': 'application/json',
-                        },
-                        body: JSON.stringify({ ...values, id: agentId }),
+                        body: formData,
                     })
                     : await fetch('/api/agents', {
                         method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                        },
-                        body: JSON.stringify(values),
+                        body: formData,
                     });
 
                 if (response.ok) {
@@ -105,9 +173,10 @@ const AgentForm = () => {
                     });
                     router.push('/dashboard/agents');
                 } else {
+                    const err = await response.json();
                     toast({
                         title: agentId ? "Failed to update agent" : "Failed to add agent",
-                        description: '',
+                        description: err.error || err.details || 'Unknown error',
                         variant: 'destructive',
                     });
                 }
@@ -115,16 +184,20 @@ const AgentForm = () => {
                 console.error('Error submitting form:', error);
                 toast({
                     title: "An error occurred while processing the user",
-                    description: '',
+                    description: error.message || '',
                     variant: 'destructive'
                 });
             }
         },
     });
 
+    const handleImageChange = (e) => {
+        formik.setFieldValue('image', e.currentTarget.files[0]);
+    };
+
     return (
         <div className='container'>
-             <form onSubmit={formik.handleSubmit} className="max-w-7xl mx-auto p-6 bg-white shadow-sm rounded-lg space-y-6 border">
+             <form onSubmit={formik.handleSubmit} className="max-w-7xl mx-auto p-6 bg-white shadow-sm rounded-lg space-y-6 border" encType="multipart/form-data">
                 <div>
                     <label htmlFor="name" className="block text-gray-700 text-sm font-medium">Name</label>
                     <input
@@ -201,6 +274,101 @@ const AgentForm = () => {
                         className="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                     />
                     {formik.errors.password && formik.touched.email && <div className="text-red-600 text-sm mt-2">{formik.errors.email}</div>}
+                </div>
+
+                <div className="mb-2 text-xs text-gray-400">
+                  {/* Debug info for troubleshooting */}
+                  <div>Current role: {JSON.stringify(formik.values.role)} | complaint_type_id: {JSON.stringify(formik.values.complaint_type_id)}</div>
+                </div>
+                <div>
+                    <label htmlFor="role" className="block text-gray-700 text-sm font-medium">Role</label>
+                    <select
+                        id="role"
+                        name="role"
+                        onChange={formik.handleChange}
+                        value={formik.values.role}
+                        className="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-md"
+                    >
+                        <option value="">Select a role...</option>
+                        {agentRoles.map((role) => (
+                            <option key={role.value} value={role.value}>
+                                {role.label}
+                            </option>
+                        ))}
+                    </select>
+                    {formik.errors.role && formik.touched.role && <div className="text-red-600 text-sm mt-2">{formik.errors.role}</div>}
+                </div>
+
+                <div>
+                    <label htmlFor="town_id" className="block text-gray-700 text-sm font-medium">Town</label>
+                    {townsLoading ? (
+                      <div className="text-gray-500">Loading towns...</div>
+                    ) : (
+                      <select
+                        id="town_id"
+                        name="town_id"
+                        onChange={formik.handleChange}
+                        value={formik.values.town_id}
+                        className="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-md"
+                      >
+                        <option value="">Select a town...</option>
+                        {towns.map((town) => (
+                            <option key={town.id} value={town.id}>
+                                {town.name}
+                            </option>
+                        ))}
+                      </select>
+                    )}
+                    {formik.errors.town_id && formik.touched.town_id && <div className="text-red-600 text-sm mt-2">{formik.errors.town_id}</div>}
+                </div>
+
+                <div>
+                    <label htmlFor="complaint_type_id" className="block text-gray-700 text-sm font-medium">Complaint Type</label>
+                    {complaintTypesLoading ? (
+                      <div className="text-gray-500">Loading complaint types...</div>
+                    ) : (
+                      <select
+                        id="complaint_type_id"
+                        name="complaint_type_id"
+                        onChange={formik.handleChange}
+                        value={formik.values.complaint_type_id}
+                        className="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-md"
+                      >
+                        <option value="">Select a complaint type...</option>
+                        {complaintTypes.map((type) => (
+                            <option key={type.id} value={type.id}>
+                                {type.name}
+                            </option>
+                        ))}
+                      </select>
+                    )}
+                    {formik.errors.complaint_type_id && formik.touched.complaint_type_id && <div className="text-red-600 text-sm mt-2">{formik.errors.complaint_type_id}</div>}
+                </div>
+
+                <div>
+                    <label htmlFor="password" className="block text-gray-700 text-sm font-medium">Password (leave blank to keep current)</label>
+                    <input
+                        id="password"
+                        name="password"
+                        type="password"
+                        onChange={formik.handleChange}
+                        value={formik.values.password}
+                        className="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                    />
+                    {formik.errors.password && formik.touched.password && <div className="text-red-600 text-sm mt-2">{formik.errors.password}</div>}
+                </div>
+
+                <div>
+                    <label htmlFor="image" className="block text-gray-700 text-sm font-medium">Image (optional)</label>
+                    <input
+                        id="image"
+                        name="image"
+                        type="file"
+                        accept="image/*"
+                        onChange={handleImageChange}
+                        className="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-md"
+                    />
+                    {formik.errors.image && formik.touched.image && <div className="text-red-600 text-sm mt-2">{formik.errors.image}</div>}
                 </div>
 
                 <div className='flex justify-end'>

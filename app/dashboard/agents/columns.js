@@ -14,6 +14,17 @@ import {
 
 import Link from "next/link"
 
+// Improved getRoleLabel to handle string/number
+const getRoleLabel = (role) => {
+  const roles = {
+    1: 'Executive Engineer',
+    2: 'Contractor',
+    '1': 'Executive Engineer',
+    '2': 'Contractor',
+  };
+  return roles[role] || 'Unknown';
+};
+
 export const columns = [
   {
     accessorKey: "image",
@@ -42,6 +53,22 @@ export const columns = [
   {
     accessorKey: "email",
     header: "Email",
+  },
+  {
+    accessorKey: "role",
+    header: "Role",
+    cell: ({ row }) => {
+      const role = row.getValue("role");
+      return <span>{getRoleLabel(role)}</span>;
+    },
+  },
+  {
+    accessorKey: "complaint_type",
+    header: "Complaint Type",
+    cell: ({ row }) => {
+      const type = row.original.complaint_type;
+      return <span>{type || row.original.complaint_type_id || '-'}</span>;
+    },
   },
   {
     id: "actions",

@@ -92,17 +92,13 @@ export function DataTable({ columns, data, children }) {
                                                     <Image
                                                         src={cell.getValue()}
                                                         alt="User Image"
+                                                        width={40}
+                                                        height={40}
                                                         className="w-10 h-10 object-cover rounded-full"
                                                     />
                                                 ) : (
                                                     <div className="w-10 h-10 bg-gray-200 rounded-full flex items-center justify-center">
-                                                        <Image
-                                                            src="https://placehold.co/100"
-                                                            width={100}
-                                                            height={100}
-                                                            alt="User Image"
-                                                            className="w-10 h-10 object-cover rounded-full"
-                                                        />
+                                                        <span className="text-gray-500 text-xs">No Image</span>
                                                     </div>
                                                 )
                                             ) : (

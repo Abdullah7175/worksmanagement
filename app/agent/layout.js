@@ -1,42 +1,32 @@
 "use client"
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
-
-import { AppSidebar } from "@/components/app-sidebar";
+import { AgentSidebar } from "./AgentSidebar";
 import { Bell, LogOut } from "lucide-react"
 import { Button } from "@/components/ui/button";
 import { Toaster } from "@/components/ui/toaster"
 import { useRouter } from "next/navigation";
-import { useState, useEffect} from "react";
-
-
-
+import { useState } from "react";
+import { signOut } from "next-auth/react";
 
 export default function Layout({ children }) {
-    const [success, setSuccess] = useState(false);
-   
+    const [loading, setLoading] = useState(false);
 
-    const handleLogout = () => {
-      // Remove JWT token from local storage
-      localStorage.removeItem("jwtToken");
-  
-      // Expire the JWT token cookie
-      document.cookie =
-        "jwtToken=; path=/; expires=Thu, 01 Jan 1970 00:00:00 UTC;";
-  
-      // Set success state to true
-      setSuccess(true);
-    };
-  
-    useEffect(() => {
-      if (success) {
-        // Redirect to login page when logout is successful
-        window.location.href = '/login';
+    const handleLogout = async () => {
+      setLoading(true);
+      try {
+        await signOut({ 
+          redirect: true,
+          callbackUrl: '/login'
+        });
+      } catch (error) {
+        console.error('Logout error:', error);
+        setLoading(false);
       }
-    }, [success]);
+    };
+
     return (
-       
         <SidebarProvider>
-            <AppSidebar />
+            <AgentSidebar />
             <main className="w-full">
                 <div className="h-16 border-b w-full bg-gray-800 text-white flex items-center justify-between p-4 shadow-sm">
                     <div className="flex gap-4 items-center">
@@ -45,7 +35,12 @@ export default function Layout({ children }) {
                         <h1 className="text-2xl font-bold block md:hidden">WMP</h1>
                     </div>
                     <div className="flex gap-4">
-                        <Button onClick={handleLogout} variant="secondary" className="border px-3">
+                        <Button 
+                          onClick={handleLogout} 
+                          variant="secondary" 
+                          className="border px-3"
+                          disabled={loading}
+                        >
                             <LogOut className="w-5 h-5" />
                         </Button>
                         <Button variant="secondary" className="border px-3">
@@ -57,6 +52,5 @@ export default function Layout({ children }) {
                 <Toaster />
             </main>
         </SidebarProvider>
-      
     );
 }

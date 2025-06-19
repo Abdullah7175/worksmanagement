@@ -37,6 +37,15 @@ export async function GET(req) {
 
     const user = result.rows[0];
     
+    // Debug logging
+    console.log('Debug - User from DB:', {
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      userType: decoded.userType
+    });
+    
     return NextResponse.json({
       id: user.id,
       name: user.name,

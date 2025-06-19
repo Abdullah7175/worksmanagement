@@ -5,7 +5,10 @@ import { connectToDatabase } from '@/lib/db';
 export async function GET(request) {
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
-
+    const page = parseInt(searchParams.get('page') || '1', 10);
+    const limit = parseInt(searchParams.get('limit') || '0', 10);
+    const offset = (page - 1) * limit;
+    const filter = searchParams.get('filter') || '';
     const client = await connectToDatabase();
 
     try {
@@ -18,7 +21,25 @@ export async function GET(request) {
             }
 
             return NextResponse.json(result.rows[0], { status: 200 });
+        } else if (limit > 0) {
+            // Paginated with optional filter
+            let countQuery = 'SELECT COUNT(*) FROM complaint_types';
+            let dataQuery = 'SELECT * FROM complaint_types';
+            let params = [];
+            if (filter) {
+                countQuery += ' WHERE type_name ILIKE $1';
+                dataQuery += ' WHERE type_name ILIKE $1 ORDER BY id DESC LIMIT $2 OFFSET $3';
+                params = [`%${filter}%`, limit, offset];
+            } else {
+                dataQuery += ' ORDER BY id DESC LIMIT $1 OFFSET $2';
+                params = [limit, offset];
+            }
+            const countResult = filter ? await client.query(countQuery, [`%${filter}%`]) : await client.query(countQuery);
+            const total = parseInt(countResult.rows[0].count, 10);
+            const result = await client.query(dataQuery, params);
+            return NextResponse.json({ data: result.rows, total }, { status: 200 });
         } else {
+            // All
             const query = 'SELECT * FROM complaint_types';
             const result = await client.query(query);
 

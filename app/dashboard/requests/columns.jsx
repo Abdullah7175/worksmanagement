@@ -5,6 +5,7 @@ import { format } from "date-fns"
 import { ArrowUpDown , MapPin  } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import { useRouter } from "next/navigation"
 
 export const columns = [
   {
@@ -107,12 +108,33 @@ export const columns = [
     },
   },
   {
-    accessorKey: "applicant_name",
+    accessorKey: "creator_name",
     header: "Submitted By",
+    cell: ({ row }) => {
+      const creatorName = row.getValue("creator_name");
+      const creatorType = row.original.creator_type;
+      
+      const typeLabels = {
+        'user': 'User',
+        'agent': 'Agent', 
+        'socialmedia': 'Social Media'
+      };
+      
+      return (
+        <div>
+          <div className="font-medium">{creatorName || 'Unknown'}</div>
+          <div className="text-xs text-gray-500">
+            {typeLabels[creatorType] || creatorType}
+          </div>
+        </div>
+      );
+    },
   },
   {
     id: "actions",
     cell: ({ row }) => {
+      const router = useRouter();
+      
       return (
         <div className="flex space-x-2">
           <Button

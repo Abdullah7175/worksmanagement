@@ -26,31 +26,7 @@ export const columns = [
     header: "Description",
   },
   {
-  accessorKey: "geo_tag",
-  header: "Location",
-  cell: ({ row }) => {
-    const geoTag = row.getValue("geo_tag");
-    
-    if (geoTag?.coordinates) {
-      const [longitude, latitude] = geoTag.coordinates;
-      return (
-        <a 
-          href={`https://www.google.com/maps?q=${latitude},${longitude}`}
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Button variant="outline" size="sm">
-            <MapPin className="h-4 w-4 mr-2" />
-            View Map
-          </Button>
-        </a>
-      );
-    }
-    return <span className="text-gray-400">No location</span>;
-  },
-},
-{
-  accessorKey: "location", // dummy, not used in display
+  accessorKey: "location", 
   header: "Location",
   cell: ({ row }) => {
     const lat = row.original.latitude;

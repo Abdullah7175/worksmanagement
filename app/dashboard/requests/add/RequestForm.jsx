@@ -39,7 +39,7 @@ export const RequestForm = ({ isPublic = false, initialValues, onSubmit, isEditM
     const [locationLoading, setLocationLoading] = useState(false);
 
     const formik = useFormik({
-        initialValues: {
+        initialValues: initialValues || {
             town_id: '',
             subtown_id: '',
             complaint_type_id: '',
@@ -49,9 +49,11 @@ export const RequestForm = ({ isPublic = false, initialValues, onSubmit, isEditM
             description: '',
             latitude: null,
             longitude: null,
-            applicant_id: session?.user?.id || null,
+            creator_id: session?.user?.id || null,
+            creator_type: session?.user?.userType || 'user',
         },
         validationSchema,
+        enableReinitialize: true,
         onSubmit: async (values) => {
             if (onSubmit) {
                 await onSubmit(values);
@@ -184,6 +186,33 @@ export const RequestForm = ({ isPublic = false, initialValues, onSubmit, isEditM
         fetchComplaintSubTypes();
     }, []);
 
+    // Handle initial values for edit mode
+    useEffect(() => {
+        if (initialValues && isEditMode) {
+            // Set selected town
+            if (initialValues.town_id) {
+                const town = towns.find(t => t.id === initialValues.town_id);
+                if (town) {
+                    setSelectedTown({ value: town.id, label: town.town });
+                    // Filter subtowns for this town
+                    const filtered = subtowns.filter(subtown => subtown.town_id === town.id);
+                    setFilteredSubtowns(filtered);
+                }
+            }
+
+            // Set selected complaint type
+            if (initialValues.complaint_type_id) {
+                const complaintType = complaintTypes.find(ct => ct.id === initialValues.complaint_type_id);
+                if (complaintType) {
+                    setSelectedComplaintType({ value: complaintType.id, label: complaintType.type_name });
+                    // Filter subtypes for this complaint type
+                    const filtered = complaintSubTypes.filter(subtype => subtype.complaint_type_id === complaintType.id);
+                    setFilteredSubTypes(filtered);
+                }
+            }
+        }
+    }, [initialValues, isEditMode, towns, subtowns, complaintTypes, complaintSubTypes]);
+
     const handleTownChange = (selectedOption) => {
         setSelectedTown(selectedOption);
         const filtered = subtowns.filter(subtown => subtown.town_id === selectedOption.value);
@@ -225,7 +254,7 @@ export const RequestForm = ({ isPublic = false, initialValues, onSubmit, isEditM
         <div className="container mx-auto p-4">
             <form onSubmit={formik.handleSubmit} className="max-w-3xl mx-auto bg-white p-6 rounded-lg shadow-md">
                 <h2 className="text-2xl font-bold mb-6 text-gray-800">
-                    {isPublic ? 'Submit Work Request' : 'Create New Work Request'}
+                    {isEditMode ? 'Edit Work Request' : isPublic ? 'Submit Work Request' : 'Create New Work Request'}
                 </h2>
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

@@ -53,30 +53,50 @@ export async function GET(request) {
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
     const role = searchParams.get('role');
-
+    const page = parseInt(searchParams.get('page') || '1', 10);
+    const limit = parseInt(searchParams.get('limit') || '0', 10);
+    const offset = (page - 1) * limit;
+    const filter = searchParams.get('filter') || '';
     const client = await connectToDatabase();
-
     try {
         if (id) {
             const query = 'SELECT * FROM users WHERE id = $1';
             const result = await client.query(query, [id]);
-
             if (result.rows.length === 0) {
                 return NextResponse.json({ error: 'User not found' }, { status: 404 });
             }
-
             return NextResponse.json(result.rows[0], { status: 200 });
+        } else if (limit > 0) {
+            // Paginated with optional filter
+            let countQuery = 'SELECT COUNT(*) FROM users';
+            let dataQuery = 'SELECT id, name, email, contact_number, role, image FROM users';
+            let params = [];
+            if (filter) {
+                countQuery += ' WHERE name ILIKE $1 OR email ILIKE $1';
+                dataQuery += ' WHERE name ILIKE $1 OR email ILIKE $1';
+                dataQuery += ' ORDER BY created_date DESC LIMIT $2 OFFSET $3';
+                params = [`%${filter}%`, limit, offset];
+            } else if (role) {
+                countQuery += ' WHERE role = $1';
+                dataQuery += ' WHERE role = $1';
+                dataQuery += ' ORDER BY created_date DESC LIMIT $2 OFFSET $3';
+                params = [role, limit, offset];
+            } else {
+                dataQuery += ' ORDER BY created_date DESC LIMIT $1 OFFSET $2';
+                params = [limit, offset];
+            }
+            const countResult = params.length > 0 ? await client.query(countQuery, params.slice(0, -2)) : await client.query(countQuery);
+            const total = parseInt(countResult.rows[0].count, 10);
+            const result = await client.query(dataQuery, params);
+            return NextResponse.json({ data: result.rows, total }, { status: 200 });
         } else {
             let query = 'SELECT id, name, email, contact_number, role, image FROM users';
             let params = [];
-            
             if (role) {
                 query += ' WHERE role = $1';
                 params.push(role);
             }
-            
             query += ' ORDER BY created_date DESC';
-            
             const result = await client.query(query, params);
             return NextResponse.json(result.rows, { status: 200 });
         }

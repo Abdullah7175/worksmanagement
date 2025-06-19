@@ -5,6 +5,10 @@ export async function GET(request) {
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
     const workRequestId = searchParams.get('workRequestId');
+    const page = parseInt(searchParams.get('page') || '1', 10);
+    const limit = parseInt(searchParams.get('limit') || '0', 10);
+    const offset = (page - 1) * limit;
+    const filter = searchParams.get('filter') || '';
     const client = await connectToDatabase();
 
     try {
@@ -32,6 +36,22 @@ export async function GET(request) {
             `;
             const result = await client.query(query, [workRequestId]);
             return NextResponse.json(result.rows, { status: 200 });
+        } else if (limit > 0) {
+            // Paginated with optional filter
+            let countQuery = 'SELECT COUNT(*) FROM images';
+            let dataQuery = `SELECT i.*, wr.request_date, wr.address, ST_AsGeoJSON(i.geo_tag) as geo_tag FROM images i JOIN work_requests wr ON i.work_request_id = wr.id`;
+            let params = [];
+            if (filter) {
+                countQuery += ' WHERE description ILIKE $1 OR CAST(i.work_request_id AS TEXT) ILIKE $1';
+                dataQuery += ' WHERE i.description ILIKE $1 OR CAST(i.work_request_id AS TEXT) ILIKE $1';
+                params = [`%${filter}%`];
+            }
+            dataQuery += ' ORDER BY i.created_at DESC LIMIT $2 OFFSET $3';
+            const countResult = filter ? await client.query(countQuery, params) : await client.query(countQuery);
+            const total = parseInt(countResult.rows[0].count, 10);
+            const dataParams = filter ? [...params, limit, offset] : [limit, offset];
+            const result = await client.query(dataQuery, dataParams);
+            return NextResponse.json({ data: result.rows, total }, { status: 200 });
         } else {
             const query = `
                 SELECT i.*, wr.request_date, wr.address, ST_AsGeoJSON(i.geo_tag) as geo_tag

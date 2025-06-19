@@ -5,7 +5,10 @@ import { connectToDatabase } from '@/lib/db';
 export async function GET(request) {
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
-
+    const page = parseInt(searchParams.get('page') || '1', 10);
+    const limit = parseInt(searchParams.get('limit') || '0', 10);
+    const offset = (page - 1) * limit;
+    const filter = searchParams.get('filter') || '';
     const client = await connectToDatabase();
 
     try {
@@ -18,7 +21,32 @@ export async function GET(request) {
             }
 
             return NextResponse.json(result.rows[0], { status: 200 });
+        } else if (limit > 0) {
+            // Paginated with optional filter
+            let countQuery = 'SELECT COUNT(*) FROM complaint_subtypes';
+            let dataQuery = `SELECT 
+              complaint_subtypes.id,
+              complaint_subtypes.subtype_name,
+              complaint_subtypes.description,
+              complaint_types.id AS complaint_type_id,
+              complaint_types.type_name AS complaint_type
+            FROM complaint_subtypes
+            JOIN complaint_types ON complaint_subtypes.complaint_type_id = complaint_types.id`;
+            let params = [];
+            if (filter) {
+                countQuery += ' WHERE subtype_name ILIKE $1';
+                dataQuery += ' WHERE complaint_subtypes.subtype_name ILIKE $1 ORDER BY complaint_subtypes.id DESC LIMIT $2 OFFSET $3';
+                params = [`%${filter}%`, limit, offset];
+            } else {
+                dataQuery += ' ORDER BY complaint_subtypes.id DESC LIMIT $1 OFFSET $2';
+                params = [limit, offset];
+            }
+            const countResult = filter ? await client.query(countQuery, [`%${filter}%`]) : await client.query(countQuery);
+            const total = parseInt(countResult.rows[0].count, 10);
+            const result = await client.query(dataQuery, params);
+            return NextResponse.json({ data: result.rows, total }, { status: 200 });
         } else {
+            // All
             const query = `
             SELECT 
               complaint_subtypes.id,
@@ -30,7 +58,6 @@ export async function GET(request) {
             JOIN complaint_types ON complaint_subtypes.complaint_type_id = complaint_types.id
           `;
             const result = await client.query(query);
-
             return NextResponse.json(result.rows, { status: 200 });
         }
     } catch (error) {

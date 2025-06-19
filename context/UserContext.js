@@ -1,40 +1,3 @@
-// import { createContext, useContext, useState, useEffect } from 'react';
-
-// const UserContext = createContext();
-
-// export const UserProvider = ({ children }) => {
-//   const [username, setUsername] = useState('');
-
-//   // 
-//   useEffect(() => {
-//     async function fetchUsername() {
-//       try {
-//         const response = await fetch('/api/users/me'); // ✅ Corrected API route
-
-//         if (!response.ok) {
-//           throw new Error('Failed to fetch user');
-//         }
-
-//         const data = await response.json();
-//         setUsername(data.username);
-//       } catch (error) {
-//         console.error('Failed to fetch username:', error);
-//       }
-//     }
-
-//     fetchUsername();
-//   }, []);
-
-//   return (
-//     <UserContext.Provider value={{ username }}>
-//       {children}
-//     </UserContext.Provider>
-//   );
-// };
-
-// export const useUser = () => useContext(UserContext);
-// context/UserContext.js
-// context/UserContext.js
 "use client";
 import { createContext, useContext, useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
@@ -52,36 +15,32 @@ export const UserProvider = ({ children }) => {
   const { data: session, status } = useSession();
 
   useEffect(() => {
-    const fetchUser = async () => {
-      try {
-        if (status === 'authenticated') {
-          const response = await fetch('/api/users/me', {
-            credentials: 'include'
-          });
-          
-          if (!response.ok) {
-            throw new Error(response.statusText || 'Failed to fetch user');
-          }
+    if (status === 'loading') {
+      return; // Still loading, don't do anything
+    }
 
-          const userData = await response.json();
-          setUser(userData);
-        } else if (status === 'unauthenticated') {
-          setUser({
-            name: 'Guest',
-            image: '/avatar.png',
-            role: 0,
-            userType: null
-          });
-        }
-      } catch (error) {
-        console.error('Error fetching user:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchUser();
-  }, [status]);
+    if (status === 'authenticated' && session?.user) {
+      // User is authenticated, set user data from session
+      setUser({
+        id: session.user.id,
+        name: session.user.name,
+        email: session.user.email,
+        image: session.user.image || '/avatar.png',
+        role: session.user.role,
+        userType: session.user.userType
+      });
+    } else if (status === 'unauthenticated') {
+      // User is not authenticated, set guest user
+      setUser({
+        name: 'Guest',
+        image: '/avatar.png',
+        role: 0,
+        userType: null
+      });
+    }
+    
+    setLoading(false);
+  }, [status, session]);
 
   const login = async (token, userData) => {
     setUser(userData);

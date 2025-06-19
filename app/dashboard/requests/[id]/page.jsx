@@ -12,12 +12,9 @@ const RequestDetailPage = () => {
     const { id } = useParams();
     const [request, setRequest] = useState(null);
     const [loading, setLoading] = useState(true);
-    const [agents, setAgents] = useState([]);
     const [smAgents, setSmAgents] = useState([]);
     const [statuses, setStatuses] = useState([]);
-    const [selectedAgent, setSelectedAgent] = useState(null);
     const [selectedStatus, setSelectedStatus] = useState(null);
-    const [selectedAgents, setSelectedAgents] = useState([]);
     const [selectedSmAgents, setSelectedSmAgents] = useState([]);
     const { toast } = useToast();
     const router = useRouter();
@@ -31,25 +28,11 @@ const RequestDetailPage = () => {
                     setRequest(data);
                     
                     // Set initial values for selects
-                    if (data.assigned_to) {
-                        setSelectedAgent({
-                            value: data.assigned_to,
-                            label: data.assigned_to_name
-                        });
-                    }
-                    
                     if (data.status_id) {
                         setSelectedStatus({
                             value: data.status_id,
                             label: data.status_name
                         });
-                    }
-                    if (data.assigned_agents) {
-                        setSelectedAgents(data.assigned_agents.map(agent => ({
-                            value: agent.agent_id,
-                            label: agent.agent_name,
-                            status: agent.status
-                        })));
                     }
 
                     if (data.assigned_sm_agents) {
@@ -67,24 +50,13 @@ const RequestDetailPage = () => {
             }
         };
 
-        const fetchAgents = async () => {
-            try {
-                const res = await fetch('/api/users?role=agent');
-                if (res.ok) {
-                    const data = await res.json();
-                    setAgents(data);
-                }
-            } catch (error) {
-                console.error('Error fetching agents:', error);
-            }
-        };
-
         const fetchSmAgents = async () => {
             try {
-                const res = await fetch('/api/users?role=social_media');
+                const res = await fetch('/api/socialmediaperson');
                 if (res.ok) {
                     const data = await res.json();
-                    setSmAgents(data);
+                    // The API returns { data: [...], total } structure
+                    setSmAgents(data.data || data);
                 }
             } catch (error) {
                 console.error('Error fetching social media agents:', error);
@@ -104,7 +76,6 @@ const RequestDetailPage = () => {
         };
 
         fetchRequest();
-        fetchAgents();
         fetchSmAgents();
         fetchStatuses();
     }, [id]);
@@ -118,12 +89,7 @@ const RequestDetailPage = () => {
                 },
                 body: JSON.stringify({
                     id,
-                    assigned_to: selectedAgent?.value,
                     status_id: selectedStatus?.value,
-                    assigned_agents: selectedAgents.map(agent => ({
-                        agent_id: agent.value,
-                        status: agent.status || 1
-                    })),
                     assigned_sm_agents: selectedSmAgents.map(sm => ({
                         sm_agent_id: sm.value,
                         status: sm.status || 1
@@ -152,10 +118,6 @@ const RequestDetailPage = () => {
         }
     };
 
-    const handleAgentChange = (selectedOptions) => {
-        setSelectedAgents(selectedOptions || []);
-    };
-
     const handleSmAgentChange = (selectedOptions) => {
         setSelectedSmAgents(selectedOptions || []);
     };
@@ -168,17 +130,12 @@ const RequestDetailPage = () => {
         return <div>Request not found</div>;
     }
 
-    const agentOptions = agents.map(agent => ({
-        value: agent.id,
-        label: agent.name
-    }));
-
-    const smAgentOptions = smAgents.map(sm => ({
+    const smAgentOptions = (smAgents || []).map(sm => ({
         value: sm.id,
         label: sm.name
     }));
 
-    const statusOptions = statuses.map(status => ({
+    const statusOptions = (statuses || []).map(status => ({
         value: status.id,
         label: status.name
     }));
@@ -206,7 +163,7 @@ const RequestDetailPage = () => {
                         <div className="space-y-2">
                             <p><span className="font-medium">Contact Number:</span> {request.contact_number}</p>
                             <p><span className="font-medium">Address:</span> {request.address}</p>
-                            {request.applicant_name && <p><span className="font-medium">Submitted By:</span> {request.applicant_name}</p>}
+                            <p><span className="font-medium">Created By:</span> {request.creator_name} ({request.creator_type})</p>
                         </div>
                     </div>
                     
@@ -220,18 +177,6 @@ const RequestDetailPage = () => {
                     <h2 className="text-lg font-semibold mb-4">Assignment</h2>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">Assign To (Primary)</label>
-                            <Select
-                                options={agentOptions}
-                                value={selectedAgent}
-                                onChange={setSelectedAgent}
-                                className="basic-select"
-                                classNamePrefix="select"
-                                placeholder="Select primary agent"
-                            />
-                        </div>
-                        
-                        <div>
                             <label className="block text-sm font-medium text-gray-700 mb-2">Status</label>
                             <Select
                                 options={statusOptions}
@@ -240,19 +185,6 @@ const RequestDetailPage = () => {
                                 className="basic-select"
                                 classNamePrefix="select"
                                 placeholder="Select status"
-                            />
-                        </div>
-                        
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">Additional Agents</label>
-                            <Select
-                                isMulti
-                                options={agentOptions}
-                                value={selectedAgents}
-                                onChange={handleAgentChange}
-                                className="basic-multi-select"
-                                classNamePrefix="select"
-                                placeholder="Select additional agents"
                             />
                         </div>
                         
