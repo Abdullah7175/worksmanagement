@@ -6,6 +6,7 @@ import { ArrowUpDown , MapPin  } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { useRouter } from "next/navigation"
+import { useSession } from 'next-auth/react'
 
 export const columns = [
   {
@@ -134,23 +135,37 @@ export const columns = [
     id: "actions",
     cell: ({ row }) => {
       const router = useRouter();
-      
+      const { data: session } = useSession();
+      const status = row.original.status_name;
+      const requestId = row.original.id;
+      const userRole = session?.user?.role;
+      // Only admin (1) and manager (2) can generate performa for completed requests
+      const canGeneratePerforma = (status === 'Completed') && (userRole === 1 || userRole === 2);
       return (
         <div className="flex space-x-2">
           <Button
             variant="outline"
             size="sm"
-            onClick={() => window.open(`/dashboard/requests/${row.original.id}/edit`, '_blank')}
+            onClick={() => window.open(`/dashboard/requests/${requestId}/edit`, '_blank')}
           >
             Edit
           </Button>
           <Button
             variant="outline"
             size="sm"
-            onClick={() => router.push(`/dashboard/requests/${row.original.id}`)}
+            onClick={() => router.push(`/dashboard/requests/${requestId}`)}
           >
             Assign
           </Button>
+          {canGeneratePerforma && (
+            <Button
+              variant="success"
+              size="sm"
+              onClick={() => window.open(`/dashboard/complaints/performa/${requestId}`, '_blank')}
+            >
+              Generate Performa
+            </Button>
+          )}
         </div>
       )
     },

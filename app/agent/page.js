@@ -14,6 +14,10 @@ import { PieChartWithValues } from "@/components/pieChart"
 import dynamic from "next/dynamic";
 import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
+import { ChartContainer } from "@/components/ui/chart";
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from "recharts";
+import { DataTable } from "../agent/requests/data-table";
+import { columns as requestColumns } from "../agent/requests/columns";
 
 const MapComponent = dynamic(() => import("@/components/MapComponent"), { ssr: false });
 
@@ -23,41 +27,69 @@ const statusLabels = {
   3: { label: "Completed", icon: <CheckCheck className="text-green-600" /> },
 };
 
+const COLORS = ["#8884d8", "#82ca9d", "#ffc658", "#ff8042", "#8dd1e1", "#a4de6c", "#d0ed57", "#ffc0cb"];
+
 export default function AgentDashboard() {
     const { data: session } = useSession();
     const [stats, setStats] = useState({ total: 0, completed: 0, pending: 0, inProcess: 0 });
     const [subtypeData, setSubtypeData] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+    const [requests, setRequests] = useState([]);
+    const [chartData, setChartData] = useState([]);
+    const [analysisRows, setAnalysisRows] = useState([]);
 
     useEffect(() => {
         if (!session?.user?.id) return;
-        setLoading(true);
-        fetch(`/api/requests?creator_id=${session.user.id}&creator_type=agent&limit=1000`)
-            .then(res => res.json())
-            .then(({ data }) => {
-                if (!Array.isArray(data)) throw new Error("Invalid data");
-                const total = data.length;
+        const fetchData = async () => {
+            setLoading(true);
+            try {
+                // Fetch all requests for this agent
+                const res = await fetch(`/api/requests?creator_id=${session.user.id}&creator_type=agent&limit=1000`);
+                const data = await res.json();
+                const reqs = data.data || data;
+                setRequests(reqs);
+                // Calculate stats
+                let total = reqs.length;
                 let completed = 0, pending = 0, inProcess = 0;
-                const subtypeCounts = {};
-                data.forEach(req => {
-                    // Status: 1 = Pending, 2 = In Process, 3 = Completed
-                    if (req.status_id === 3) completed++;
-                    else if (req.status_id === 2) inProcess++;
-                    else pending++;
-                    // Pie chart: count by complaint_subtype
-                    if (req.complaint_subtype) {
-                        subtypeCounts[req.complaint_subtype] = (subtypeCounts[req.complaint_subtype] || 0) + 1;
-                    }
-                });
+                for (const req of reqs) {
+                    const status = (req.status_name || "").toLowerCase();
+                    if (status === "completed") completed++;
+                    else if (status === "pending") pending++;
+                    else if (status === "in process" || status === "in progress") inProcess++;
+                }
                 setStats({ total, completed, pending, inProcess });
-                setSubtypeData(Object.entries(subtypeCounts).map(([name, value]) => ({ name, value })));
+                // Group by complaint_subtype
+                const subtypeCounts = {};
+                for (const req of reqs) {
+                    const subtype = req.complaint_subtype || "Unknown";
+                    subtypeCounts[subtype] = (subtypeCounts[subtype] || 0) + 1;
+                }
+                setChartData(Object.entries(subtypeCounts).map(([name, value], i) => ({ name, value, color: COLORS[i % COLORS.length] })));
+                // For each request, fetch image and video counts
+                const analysis = await Promise.all(reqs.map(async (req) => {
+                    const [imgRes, vidRes] = await Promise.all([
+                        fetch(`/api/images?workRequestId=${req.id}`),
+                        fetch(`/api/videos?workRequestId=${req.id}`)
+                    ]);
+                    const images = await imgRes.json();
+                    const videos = await vidRes.json();
+                    return {
+                        id: req.id,
+                        date: req.request_date,
+                        complaint_subtype: req.complaint_subtype || "Unknown",
+                        imageCount: images.length || (images.data ? images.data.length : 0),
+                        videoCount: videos.length || (videos.data ? videos.data.length : 0),
+                    };
+                }));
+                setAnalysisRows(analysis);
+            } catch (e) {
+                setError("Failed to load dashboard data");
+            } finally {
                 setLoading(false);
-            })
-            .catch(e => {
-                setError(e.message);
-                setLoading(false);
-            });
+            }
+        };
+        fetchData();
     }, [session?.user?.id]);
 
     if (loading) {
@@ -102,12 +134,62 @@ export default function AgentDashboard() {
 
             <div className="flex flex-col lg:flex-row w-full gap-8 mt-10">
                 <div className="w-full xl:w-1/2 bg-white rounded-lg shadow p-6">
-                    <h2 className="text-lg font-semibold mb-4">Complaint Subtype Distribution</h2>
-                    {subtypeData.length > 0 ? (
-                        <PieChartWithValues data={subtypeData} />
-                    ) : (
-                        <div className="text-gray-500">No data available</div>
-                    )}
+                    <h2 className="text-lg font-semibold mb-4">Requests by Complaint Subtype</h2>
+                    <div className="w-full h-72">
+                        <ChartContainer config={{}}>
+                            {chartData.length <= 6 ? (
+                                <PieChart>
+                                    <Pie data={chartData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} label>
+                                        {chartData.map((entry, i) => (
+                                            <Cell key={`cell-${i}`} fill={entry.color} />
+                                        ))}
+                                    </Pie>
+                                    <Tooltip />
+                                    <Legend />
+                                </PieChart>
+                            ) : (
+                                <BarChart data={chartData}>
+                                    <XAxis dataKey="name" />
+                                    <YAxis allowDecimals={false} />
+                                    <Tooltip />
+                                    <Legend />
+                                    <Bar dataKey="value" fill="#8884d8">
+                                        {chartData.map((entry, i) => (
+                                            <Cell key={`cell-bar-${i}`} fill={entry.color} />
+                                        ))}
+                                    </Bar>
+                                </BarChart>
+                            )}
+                        </ChartContainer>
+                    </div>
+                </div>
+            </div>
+
+            <div className="bg-white rounded-lg shadow p-6 mt-10">
+                <h2 className="text-lg font-semibold mb-4">Uploads Analysis per Request</h2>
+                <div className="overflow-x-auto">
+                    <table className="min-w-full border">
+                        <thead>
+                            <tr>
+                                <th className="px-4 py-2 border">Request ID</th>
+                                <th className="px-4 py-2 border">Date</th>
+                                <th className="px-4 py-2 border">Complaint Subtype</th>
+                                <th className="px-4 py-2 border"># Images</th>
+                                <th className="px-4 py-2 border"># Videos</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {analysisRows.map(row => (
+                                <tr key={row.id}>
+                                    <td className="px-4 py-2 border">{row.id}</td>
+                                    <td className="px-4 py-2 border">{row.date ? new Date(row.date).toLocaleDateString() : "-"}</td>
+                                    <td className="px-4 py-2 border">{row.complaint_subtype}</td>
+                                    <td className="px-4 py-2 border text-center">{row.imageCount}</td>
+                                    <td className="px-4 py-2 border text-center">{row.videoCount}</td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
                 </div>
             </div>
         </div>

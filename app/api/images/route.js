@@ -1,3 +1,5 @@
+import path from 'path';
+import { promises as fs } from 'fs';
 import { NextResponse } from 'next/server';
 import { connectToDatabase } from '@/lib/db';
 
@@ -10,6 +12,8 @@ export async function GET(request) {
     const offset = (page - 1) * limit;
     const filter = searchParams.get('filter') || '';
     const client = await connectToDatabase();
+    const creatorId = searchParams.get('creator_id');
+    const creatorType = searchParams.get('creator_type');
 
     try {
         if (id) {
@@ -26,6 +30,16 @@ export async function GET(request) {
             }
 
             return NextResponse.json(result.rows[0], { status: 200 });
+        } else if (creatorId && creatorType) {
+            const query = `
+                SELECT i.*, wr.request_date, wr.address, ST_AsGeoJSON(i.geo_tag) as geo_tag
+                FROM images i
+                JOIN work_requests wr ON i.work_request_id = wr.id
+                WHERE i.creator_id = $1 AND i.creator_type = $2
+                ORDER BY i.created_at DESC
+            `;
+            const result = await client.query(query, [creatorId, creatorType]);
+            return NextResponse.json(result.rows, { status: 200 });
         } else if (workRequestId) {
             const query = `
                 SELECT i.*, wr.request_date, wr.address, ST_AsGeoJSON(i.geo_tag) as geo_tag
@@ -78,6 +92,8 @@ export async function POST(req) {
         const description = formData.get('description');
         const geoTag = formData.get('geo_tag');
         const file = formData.get('img');
+        const creatorId = formData.get('creator_id');
+        const creatorType = formData.get('creator_type');
 
         if (!workRequestId || !description || !file) {
             return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
@@ -95,15 +111,17 @@ export async function POST(req) {
         // Save to database
         const client = await connectToDatabase();
         const query = `
-            INSERT INTO images (work_request_id, description, link, geo_tag, created_at, updated_at)
-            VALUES ($1, $2, $3, ST_GeomFromText($4, 4326), NOW(), NOW())
+            INSERT INTO images (work_request_id, description, link, geo_tag, created_at, updated_at, creator_id, creator_type)
+            VALUES ($1, $2, $3, ST_GeomFromText($4, 4326), NOW(), NOW(), $5, $6)
             RETURNING *;
         `;
         const { rows } = await client.query(query, [
             workRequestId,
             description,
             `/uploads/images/${filename}`,
-            geoTag || null
+            geoTag || null,
+            creatorId || null,
+            creatorType || null
         ]);
 
         return NextResponse.json({

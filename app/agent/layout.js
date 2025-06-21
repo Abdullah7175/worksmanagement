@@ -43,9 +43,6 @@ export default function Layout({ children }) {
                         >
                             <LogOut className="w-5 h-5" />
                         </Button>
-                        <Button variant="secondary" className="border px-3">
-                            <Bell className="w-5 h-5" />
-                        </Button>
                     </div>
                 </div>
                 {children}

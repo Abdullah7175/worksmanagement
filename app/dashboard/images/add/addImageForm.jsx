@@ -57,15 +57,21 @@ const ImageForm = () => {
             workRequestId: image?.workRequestId || '',
             description: image?.description || '',
             img: null,
+            latitude: '',
+            longitude: '',
             geo_tag: image?.geo_tag || '',
         },
         validationSchema,
         enableReinitialize: true,
         onSubmit: async (values) => {
+            let geoTag = values.geo_tag;
+            if (values.latitude && values.longitude) {
+                geoTag = `POINT(${values.longitude} ${values.latitude})`;
+            }
             const formData = new FormData();
             formData.append('workRequestId', values.workRequestId);
             formData.append('description', values.description);
-            formData.append('geo_tag', values.geo_tag || '');
+            formData.append('geo_tag', geoTag || '');
 
             if (!values.img) {
                 formik.setFieldTouched('img', true, false);
@@ -180,10 +186,9 @@ const ImageForm = () => {
                         navigator.geolocation.getCurrentPosition(
                         (position) => {
                             const { latitude, longitude } = position.coords;
-                            formik.setFieldValue(
-                            'geo_tag',
-                            `POINT(${longitude} ${latitude})`
-                            );
+                            formik.setFieldValue('latitude', latitude);
+                            formik.setFieldValue('longitude', longitude);
+                            formik.setFieldValue('geo_tag', `POINT(${longitude} ${latitude})`);
                             toast({
                             title: 'Location captured',
                             description: `Lat: ${latitude}, Lng: ${longitude}`,
@@ -200,18 +205,37 @@ const ImageForm = () => {
                         );
                     }}
                     >
-                    <MapPin className="h-4 w-4" />
-                    Capture Location
+                    <MapPin className="w-4 h-4" /> Get Location
                     </Button>
-                    {formik.values.geo_tag && (
-                    <span className="text-sm text-gray-600">
-                        Location captured
-                    </span>
-                    )}
                 </div>
-                {formik.errors.geo_tag && formik.touched.geo_tag && (
-                    <div className="text-red-600 text-sm mt-2">{formik.errors.geo_tag}</div>
-                )}
+                <div className="mt-2 grid grid-cols-2 gap-4">
+                    <div>
+                        <label htmlFor="latitude" className="block text-xs text-gray-600">Latitude</label>
+                        <input
+                            id="latitude"
+                            name="latitude"
+                            type="number"
+                            step="any"
+                            value={formik.values.latitude}
+                            onChange={formik.handleChange}
+                            className="mt-1 block w-full px-2 py-1 border border-gray-300 rounded-md"
+                            placeholder="Enter latitude"
+                        />
+                    </div>
+                    <div>
+                        <label htmlFor="longitude" className="block text-xs text-gray-600">Longitude</label>
+                        <input
+                            id="longitude"
+                            name="longitude"
+                            type="number"
+                            step="any"
+                            value={formik.values.longitude}
+                            onChange={formik.handleChange}
+                            className="mt-1 block w-full px-2 py-1 border border-gray-300 rounded-md"
+                            placeholder="Enter longitude"
+                        />
+                    </div>
+                </div>
                 </div>
                 
                 <div>

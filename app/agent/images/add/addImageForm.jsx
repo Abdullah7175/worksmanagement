@@ -1,26 +1,22 @@
 "use client"
 
-import React, { useState,useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useFormik } from 'formik';
+import Image from 'next/image';
 import * as Yup from 'yup';
-import { useVideoContext } from '../VideoContext';
 import { useToast } from "@/hooks/use-toast";
 import { MapPin } from 'lucide-react';
-// import { Image } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-// import { SearchableDropdown } from '@/components/SearchableDropdown';
-import { useRouter } from 'next/navigation'; // or 'next/router' if using pages router
-
-
+import { useRouter } from 'next/navigation';
+import { useSession } from "next-auth/react";
 
 const validationSchema = Yup.object({
     workRequestId: Yup.number().required('Work Request ID is required'),
     description: Yup.string().required('Description is required'),
-    vid: Yup.mixed().required('Video file is required')
+    img: Yup.mixed().required('Image file is required')
 });
 
-const VideoForm = () => {
-    const { video, updateVideo } = useVideoContext();
+const ImageForm = ({ workRequestId: propWorkRequestId, onClose }) => {
     const { toast } = useToast();
     const [isSuccess, setIsSuccess] = useState(false);
     const [preview, setPreview] = useState(null);
@@ -28,17 +24,17 @@ const VideoForm = () => {
     const [workRequests, setWorkRequests] = useState([]);
     const [loadingWorkRequests, setLoadingWorkRequests] = useState(true);
     const router = useRouter();
+    const { data: session } = useSession();
 
     useEffect(() => {
         const fetchWorkRequests = async () => {
             try {
-                const response = await fetch('/api/videos/work-request');
+                const response = await fetch('/api/images/work-request');
                 if (response.ok) {
                     const data = await response.json();
                     setWorkRequests(data.map(request => ({
                         value: Number(request.id),
                         label: `${request.id}`
-                        // - ${request.address} (${new Date(request.request_date).toLocaleDateString()})
                     })));
                 }
             } catch (error) {
@@ -58,17 +54,16 @@ const VideoForm = () => {
 
     const formik = useFormik({
         initialValues: {
-            workRequestId: video?.workRequestId || '',
-            description: video?.description || '',
-            vid: null, // always reset to null for new uploads
+            workRequestId: propWorkRequestId || '',
+            description: '',
+            img: null,
             latitude: '',
             longitude: '',
-            geo_tag: video?.geo_tag || '',
+            geo_tag: '',
         },
         validationSchema,
         enableReinitialize: true,
         onSubmit: async (values) => {
-            // If both latitude and longitude are present, construct geo_tag
             let geoTag = values.geo_tag;
             if (values.latitude && values.longitude) {
                 geoTag = `POINT(${values.longitude} ${values.latitude})`;
@@ -78,14 +73,20 @@ const VideoForm = () => {
             formData.append('description', values.description);
             formData.append('geo_tag', geoTag || '');
 
-            if (!values.vid) {
-                formik.setFieldTouched('vid', true, false);
-                return; // prevent submission
+            if (!values.img) {
+                formik.setFieldTouched('img', true, false);
+                return;
             }
-            formData.append('vid', values.vid);
+            formData.append('img', values.img);
+
+            // Add agent identity
+            if (session?.user?.id) {
+                formData.append('creator_id', session.user.id);
+                formData.append('creator_type', 'agent');
+            }
 
             try {
-                const response = await fetch('/api/videos/upload', {
+                const response = await fetch('/api/images', {
                     method: 'POST',
                     body: formData,
                 });
@@ -93,24 +94,24 @@ const VideoForm = () => {
                 if (response.ok) {
                     const data = await response.json();
                     toast({
-                        title: 'Video uploaded successfully',
-                        description: `Video added to work request ${values.workRequestId}`,
+                        title: 'Image uploaded successfully',
+                        description: `Image added to work request ${values.workRequestId}`,
                         variant: 'success',
                     });
                     setIsSuccess(true);
                 } else {
                     const errorData = await response.json();
                     toast({
-                        title: 'Failed to upload video',
+                        title: 'Failed to upload image',
                         description: errorData.error || 'Please try again.',
                         variant: 'destructive',
                     });
                 }
             } catch (error) {
-                console.error('Error uploading video:', error);
+                console.error('Error uploading image:', error);
                 toast({
                     title: 'An error occurred',
-                    description: 'Unable to upload video.',
+                    description: 'Unable to upload image.',
                     variant: 'destructive',
                 });
             }
@@ -118,17 +119,20 @@ const VideoForm = () => {
     });
 
     useEffect(() => {
-    if (isSuccess) {
-        router.push('/dashboard/videos');
-    }
-}, [isSuccess, router]);
-
+        if (isSuccess) {
+            if (typeof onClose === 'function') {
+                onClose();
+            } else {
+                router.push('/agent/images');
+            }
+        }
+    }, [isSuccess, router, onClose]);
 
     const handleFileChange = (e) => {
         const file = e.target.files[0];
         if (file) {
-            formik.setFieldValue('vid', file);
-            setPreview(file);
+            formik.setFieldValue('img', file);
+            setPreview(URL.createObjectURL(file));
             
             const sizeInMB = file.size / (1024 * 1024);
             const formattedSize = Math.round(sizeInMB * 100) / 100;
@@ -140,29 +144,33 @@ const VideoForm = () => {
         <div className='container'>
             <form onSubmit={formik.handleSubmit} className="max-w-7xl mx-auto p-6 bg-white shadow-sm rounded-lg space-y-6 border">
                 <div className="grid sm:grid-cols-1 md:grid-cols-2 gap-8">
-                                       
-                    <div>
-                        <label htmlFor="workRequestId" className="block text-gray-700 text-sm font-medium">
-                            Work Request
-                        </label>
-                        <select
-                            id="workRequestId"
-                            name="workRequestId"
-                            value={formik.values.workRequestId}
-                            onChange={e => formik.setFieldValue('workRequestId', Number(e.target.value))}
-                            className="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-md"
+                    {!propWorkRequestId && (
+                        <div>
+                            <label htmlFor="workRequestId" className="block text-gray-700 text-sm font-medium">
+                                Work Request
+                            </label>
+                            <select
+                                id="workRequestId"
+                                name="workRequestId"
+                                value={formik.values.workRequestId}
+                                onChange={e => formik.setFieldValue('workRequestId', Number(e.target.value))}
+                                className="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-md"
                             >
-                            <option value="">Select a work request...</option>
-                            {workRequests.map((req) => (
-                                <option key={req.value} value={req.value}>
-                                {req.label}
-                                </option>
-                            ))}
+                                <option value="">Select a work request...</option>
+                                {workRequests.map((req) => (
+                                    <option key={req.value} value={req.value}>
+                                        {req.label}
+                                    </option>
+                                ))}
                             </select>
-                        {formik.errors.workRequestId && formik.touched.workRequestId && (
-                            <div className="text-red-600 text-sm mt-2">{formik.errors.workRequestId}</div>
-                        )}
-                    </div>
+                            {formik.errors.workRequestId && formik.touched.workRequestId && (
+                                <div className="text-red-600 text-sm mt-2">{formik.errors.workRequestId}</div>
+                            )}
+                        </div>
+                    )}
+                    {propWorkRequestId && (
+                        <input type="hidden" name="workRequestId" value={propWorkRequestId} />
+                    )}
                     
                     <div>
                         <label htmlFor="description" className="block text-gray-700 text-sm font-medium">Description</label>
@@ -246,28 +254,39 @@ const VideoForm = () => {
                 </div>
                 
                 <div>
-                    <label htmlFor="vid" className="block text-gray-700 text-sm font-medium">Upload Video</label>
+                    <label htmlFor="img" className="block text-gray-700 text-sm font-medium">Upload Image</label>
                     <div className="mt-1">
                         <input
-                            id="vid"
-                            name="vid"
+                            id="img"
+                            name="img"
                             type="file"
-                            accept="video/*"
+                            accept="image/*"
                             onChange={handleFileChange}
                             className="hidden"
                         />
-                        <label htmlFor="vid" className="cursor-pointer inline-block bg-gray-100 text-gray-500 border-3 font-semibold py-2 px-4 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                            Choose a video
+                        <label htmlFor="img" className="cursor-pointer inline-block bg-gray-100 text-gray-500 border-3 font-semibold py-2 px-4 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                            Choose an image
                         </label>
-                        {formik.values.vid && (
+                        {formik.values.img && (
                             <div className="mt-2 text-gray-700 text-sm">
-                                <span className="font-medium">Selected File:</span> {formik.values.vid.name}
+                                <span className="font-medium">Selected File:</span> {formik.values.img.name}
                                 <div className="font-medium">Size: {size} MB</div>
+                                {preview && (
+                                    <div className="mt-2">
+                                        <Image
+                                            src={preview}
+                                            alt="Preview"
+                                            width={300}
+                                            height={200}
+                                            className="max-h-60 rounded-md border object-contain"
+                                            />
+                                    </div>
+                                )}
                             </div>
                         )}
                     </div>
-                    {formik.errors.vid && formik.touched.vid && (
-                        <div className="text-red-600 text-sm mt-2">{formik.errors.vid}</div>
+                    {formik.errors.img && formik.touched.img && (
+                        <div className="text-red-600 text-sm mt-2">{formik.errors.img}</div>
                     )}
                 </div>
 
@@ -276,12 +295,17 @@ const VideoForm = () => {
                         type="submit"
                         className="px-4 py-2 mt-4 bg-indigo-600 text-white font-semibold rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                     >
-                        Add Video
+                        Add Image
                     </button>
                 </div>
+                {onClose && (
+                    <div className="mt-4 flex justify-end">
+                        <Button type="button" variant="outline" onClick={onClose}>Close</Button>
+                    </div>
+                )}
             </form>
         </div>
     );
 };
 
-export default VideoForm;
+export default ImageForm;

@@ -3,13 +3,13 @@
 import React, { useState,useEffect } from 'react';
 import { useFormik } from 'formik';
 import * as Yup from 'yup';
-import { useVideoContext } from '../VideoContext';
 import { useToast } from "@/hooks/use-toast";
 import { MapPin } from 'lucide-react';
 // import { Image } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 // import { SearchableDropdown } from '@/components/SearchableDropdown';
 import { useRouter } from 'next/navigation'; // or 'next/router' if using pages router
+import { useSession } from "next-auth/react";
 
 
 
@@ -19,8 +19,7 @@ const validationSchema = Yup.object({
     vid: Yup.mixed().required('Video file is required')
 });
 
-const VideoForm = () => {
-    const { video, updateVideo } = useVideoContext();
+const VideoForm = ({ workRequestId: propWorkRequestId, onClose }) => {
     const { toast } = useToast();
     const [isSuccess, setIsSuccess] = useState(false);
     const [preview, setPreview] = useState(null);
@@ -28,6 +27,7 @@ const VideoForm = () => {
     const [workRequests, setWorkRequests] = useState([]);
     const [loadingWorkRequests, setLoadingWorkRequests] = useState(true);
     const router = useRouter();
+    const { data: session } = useSession();
 
     useEffect(() => {
         const fetchWorkRequests = async () => {
@@ -58,12 +58,12 @@ const VideoForm = () => {
 
     const formik = useFormik({
         initialValues: {
-            workRequestId: video?.workRequestId || '',
-            description: video?.description || '',
+            workRequestId: propWorkRequestId || '',
+            description: '',
             vid: null, // always reset to null for new uploads
             latitude: '',
             longitude: '',
-            geo_tag: video?.geo_tag || '',
+            geo_tag: '',
         },
         validationSchema,
         enableReinitialize: true,
@@ -83,6 +83,12 @@ const VideoForm = () => {
                 return; // prevent submission
             }
             formData.append('vid', values.vid);
+
+            // Add agent identity
+            if (session?.user?.id) {
+                formData.append('creator_id', session.user.id);
+                formData.append('creator_type', 'agent');
+            }
 
             try {
                 const response = await fetch('/api/videos/upload', {
@@ -118,10 +124,14 @@ const VideoForm = () => {
     });
 
     useEffect(() => {
-    if (isSuccess) {
-        router.push('/dashboard/videos');
-    }
-}, [isSuccess, router]);
+        if (isSuccess) {
+            if (typeof onClose === 'function') {
+                onClose();
+            } else {
+                router.push('/agent/videos');
+            }
+        }
+    }, [isSuccess, router, onClose]);
 
 
     const handleFileChange = (e) => {
@@ -140,29 +150,33 @@ const VideoForm = () => {
         <div className='container'>
             <form onSubmit={formik.handleSubmit} className="max-w-7xl mx-auto p-6 bg-white shadow-sm rounded-lg space-y-6 border">
                 <div className="grid sm:grid-cols-1 md:grid-cols-2 gap-8">
-                                       
-                    <div>
-                        <label htmlFor="workRequestId" className="block text-gray-700 text-sm font-medium">
-                            Work Request
-                        </label>
-                        <select
-                            id="workRequestId"
-                            name="workRequestId"
-                            value={formik.values.workRequestId}
-                            onChange={e => formik.setFieldValue('workRequestId', Number(e.target.value))}
-                            className="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-md"
+                    {!propWorkRequestId && (
+                        <div>
+                            <label htmlFor="workRequestId" className="block text-gray-700 text-sm font-medium">
+                                Work Request
+                            </label>
+                            <select
+                                id="workRequestId"
+                                name="workRequestId"
+                                value={formik.values.workRequestId}
+                                onChange={e => formik.setFieldValue('workRequestId', Number(e.target.value))}
+                                className="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-md"
                             >
-                            <option value="">Select a work request...</option>
-                            {workRequests.map((req) => (
-                                <option key={req.value} value={req.value}>
-                                {req.label}
-                                </option>
-                            ))}
+                                <option value="">Select a work request...</option>
+                                {workRequests.map((req) => (
+                                    <option key={req.value} value={req.value}>
+                                        {req.label}
+                                    </option>
+                                ))}
                             </select>
-                        {formik.errors.workRequestId && formik.touched.workRequestId && (
-                            <div className="text-red-600 text-sm mt-2">{formik.errors.workRequestId}</div>
-                        )}
-                    </div>
+                            {formik.errors.workRequestId && formik.touched.workRequestId && (
+                                <div className="text-red-600 text-sm mt-2">{formik.errors.workRequestId}</div>
+                            )}
+                        </div>
+                    )}
+                    {propWorkRequestId && (
+                        <input type="hidden" name="workRequestId" value={propWorkRequestId} />
+                    )}
                     
                     <div>
                         <label htmlFor="description" className="block text-gray-700 text-sm font-medium">Description</label>
@@ -279,6 +293,11 @@ const VideoForm = () => {
                         Add Video
                     </button>
                 </div>
+                {onClose && (
+                    <div className="mt-4 flex justify-end">
+                        <Button type="button" variant="outline" onClick={onClose}>Close</Button>
+                    </div>
+                )}
             </form>
         </div>
     );

@@ -75,12 +75,15 @@ export async function GET(request) {
                     ST_X(wr.geo_tag) as longitude, 
                     t.town as town_name, 
                     ct.type_name as complaint_type, 
+                    cst.subtype_name as complaint_subtype, 
+                    wr.complaint_subtype_id, 
                     s.name as status_name,
                     COALESCE(u.name, ag.name, sm.name) as creator_name,
                     wr.creator_type
                 FROM work_requests wr 
                 LEFT JOIN town t ON wr.town_id = t.id 
                 LEFT JOIN complaint_types ct ON wr.complaint_type_id = ct.id 
+                LEFT JOIN complaint_subtypes cst ON wr.complaint_subtype_id = cst.id 
                 LEFT JOIN status s ON wr.status_id = s.id 
                 LEFT JOIN users u ON wr.creator_type = 'user' AND wr.creator_id = u.id
                 LEFT JOIN agents ag ON wr.creator_type = 'agent' AND wr.creator_id = ag.id
@@ -90,24 +93,39 @@ export async function GET(request) {
             let params = [];
             let paramIdx = 1;
             if (creator_id && creator_type) {
-                whereClauses.push(`wr.creator_id = $${paramIdx} AND wr.creator_type = $${paramIdx + 1}`);
+                whereClauses.push(`creator_id = $${paramIdx} AND creator_type = $${paramIdx + 1}`);
                 params.push(creator_id, creator_type);
                 paramIdx += 2;
             }
             if (filter) {
-                whereClauses.push(`(wr.address ILIKE $${paramIdx} OR u.name ILIKE $${paramIdx} OR ag.name ILIKE $${paramIdx} OR sm.name ILIKE $${paramIdx} OR ct.type_name ILIKE $${paramIdx})`);
+                whereClauses.push(`(address ILIKE $${paramIdx} OR u.name ILIKE $${paramIdx} OR ag.name ILIKE $${paramIdx} OR sm.name ILIKE $${paramIdx} OR ct.type_name ILIKE $${paramIdx})`);
                 params.push(`%${filter}%`);
                 paramIdx += 1;
             }
+            let dataWhereClauses = [];
+            let dataParamIdx = 1;
+            let dataParams = [];
+            if (creator_id && creator_type) {
+                dataWhereClauses.push(`wr.creator_id = $${dataParamIdx} AND wr.creator_type = $${dataParamIdx + 1}`);
+                dataParams.push(creator_id, creator_type);
+                dataParamIdx += 2;
+            }
+            if (filter) {
+                dataWhereClauses.push(`(wr.address ILIKE $${dataParamIdx} OR u.name ILIKE $${dataParamIdx} OR ag.name ILIKE $${dataParamIdx} OR sm.name ILIKE $${dataParamIdx} OR ct.type_name ILIKE $${dataParamIdx})`);
+                dataParams.push(`%${filter}%`);
+                dataParamIdx += 1;
+            }
             if (whereClauses.length > 0) {
                 countQuery += ' WHERE ' + whereClauses.join(' AND ');
-                dataQuery += ' WHERE ' + whereClauses.join(' AND ');
             }
-            dataQuery += ` ORDER BY wr.request_date DESC LIMIT $${paramIdx} OFFSET $${paramIdx + 1}`;
-            params.push(limit, offset);
-            const countResult = await client.query(countQuery, params.slice(0, params.length - 2));
+            if (dataWhereClauses.length > 0) {
+                dataQuery += ' WHERE ' + dataWhereClauses.join(' AND ');
+            }
+            dataQuery += ` ORDER BY wr.request_date DESC LIMIT $${dataParamIdx} OFFSET $${dataParamIdx + 1}`;
+            dataParams.push(limit, offset);
+            const countResult = await client.query(countQuery, params);
             const total = parseInt(countResult.rows[0].count, 10);
-            const result = await client.query(dataQuery, params);
+            const result = await client.query(dataQuery, dataParams);
             return NextResponse.json({ data: result.rows, total }, { status: 200 });
         } else {
             const query = `
@@ -146,7 +164,8 @@ export async function POST(req) {
 
     try {
         const body = await req.json();
-        const { 
+        console.log('DEBUG: Received body:', body);
+        const {
             town_id,
             subtown_id,
             complaint_type_id,
@@ -160,11 +179,22 @@ export async function POST(req) {
             creator_type // 'user', 'agent', 'socialmedia'
         } = body;
 
+        // Validate required fields
+        if (!town_id || !complaint_type_id || !contact_number || !address || !description || !creator_id || !creator_type) {
+            return NextResponse.json({
+                error: 'Missing required fields',
+                details: {
+                    town_id, complaint_type_id, contact_number, address, description, creator_id, creator_type
+                }
+            }, { status: 400 });
+        }
+
         // Validate creator type
         const allowedCreatorTypes = ['user', 'agent', 'socialmedia'];
         if (!allowedCreatorTypes.includes(creator_type)) {
-            return NextResponse.json({ 
-                error: 'Invalid creator type. Must be user, agent, or socialmedia' 
+            return NextResponse.json({
+                error: 'Invalid creator type. Must be user, agent, or socialmedia',
+                received: creator_type
             }, { status: 400 });
         }
 
@@ -184,8 +214,9 @@ export async function POST(req) {
 
         const validationResult = await client.query(validationQuery, [creator_id]);
         if (validationResult.rows.length === 0) {
-            return NextResponse.json({ 
-                error: `Invalid ${creator_type} ID` 
+            return NextResponse.json({
+                error: `Invalid ${creator_type} ID`,
+                received: creator_id
             }, { status: 400 });
         }
 
@@ -228,14 +259,14 @@ export async function POST(req) {
 
         const result = await client.query(query, params);
 
-        return NextResponse.json({ 
-            message: 'Work request submitted successfully', 
-            id: result.rows[0].id 
+        return NextResponse.json({
+            message: 'Work request submitted successfully',
+            id: result.rows[0].id
         }, { status: 200 });
 
     } catch (error) {
         console.error('Error submitting work request:', error);
-        return NextResponse.json({ error: 'Failed to submit work request' }, { status: 500 });
+        return NextResponse.json({ error: 'Failed to submit work request', details: error.message }, { status: 500 });
     } finally {
         client.release();
     }

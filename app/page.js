@@ -1,11 +1,15 @@
 import { useSession } from 'next-auth/react';
 import Link from 'next/link';
+import Image from "next/image";
 
 export default function Home() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50">
       <div className="max-w-md w-full space-y-8">
         <div>
+          <div className="flex items-center justify-center gap-0">
+                   <Image src="/logo.png" className="py-0 px-1" width="150" height="150" alt="logo" />
+                 </div>
           <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
             Works Management Portal
           </h2>
@@ -21,12 +25,12 @@ export default function Home() {
             >
               Login to Portal
             </Link>
-            <Link 
+            {/* <Link 
               href="/public/request/new"
               className="group relative w-full flex justify-center py-2 px-4 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
             >
               Submit Public Request
-            </Link>
+            </Link> */}
           </div>
         </div>
       </div>

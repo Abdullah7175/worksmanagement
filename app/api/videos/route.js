@@ -127,6 +127,8 @@ export async function GET(request) {
     const limit = parseInt(searchParams.get('limit') || '0', 10);
     const offset = (page - 1) * limit;
     const filter = searchParams.get('filter') || '';
+    const creatorId = searchParams.get('creator_id');
+    const creatorType = searchParams.get('creator_type');
     const client = await connectToDatabase();
 
     try {
@@ -144,6 +146,16 @@ export async function GET(request) {
             }
 
             return NextResponse.json(result.rows[0], { status: 200 });
+        } else if (creatorId && creatorType) {
+            const query = `
+                SELECT v.*, wr.request_date, wr.address, ST_Y(v.geo_tag) as latitude, ST_X(v.geo_tag) as longitude
+                FROM videos v
+                JOIN work_requests wr ON v.work_request_id = wr.id
+                WHERE v.creator_id = $1 AND v.creator_type = $2
+                ORDER BY v.created_at DESC
+            `;
+            const result = await client.query(query, [creatorId, creatorType]);
+            return NextResponse.json(result.rows, { status: 200 });
         } else if (workRequestId) {
             const query = `
                 SELECT v.*, wr.request_date, wr.address ,ST_Y(v.geo_tag) as latitude,ST_X(v.geo_tag) as longitude

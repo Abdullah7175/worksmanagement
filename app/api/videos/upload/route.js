@@ -63,6 +63,8 @@ export async function POST(req) {
         const description = formData.get('description');
         const geoTag = formData.get('geo_tag');
         const file = formData.get('vid');
+        const creatorId = formData.get('creator_id');
+        const creatorType = formData.get('creator_type');
 
         if (!workRequestId || !description || !file) {
             return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
@@ -80,15 +82,17 @@ export async function POST(req) {
         // Save to database
         const client = await connectToDatabase();
         const query = `
-            INSERT INTO videos (work_request_id, description, link, geo_tag, created_at, updated_at)
-            VALUES ($1, $2, $3, ST_GeomFromText($4, 4326), NOW(), NOW())
+            INSERT INTO videos (work_request_id, description, link, geo_tag, created_at, updated_at, creator_id, creator_type)
+            VALUES ($1, $2, $3, ST_GeomFromText($4, 4326), NOW(), NOW(), $5, $6)
             RETURNING *;
         `;
         const { rows } = await client.query(query, [
             workRequestId,
             description,
             `/uploads/videos/${filename}`,
-            geoTag || null
+            geoTag || null,
+            creatorId || null,
+            creatorType || null
         ]);
 
         return NextResponse.json({

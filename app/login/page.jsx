@@ -55,10 +55,10 @@ export default function LoginPage() {
 
         // Redirect based on user type
         switch (session.user?.userType) {
-          case "agents":
+          case "agent":
             router.push("/agent");
             break;
-          case "socialmediaperson":
+          case "socialmedia":
             router.push("/smagent");
             break;
           default:

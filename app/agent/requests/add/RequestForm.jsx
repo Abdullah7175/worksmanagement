@@ -30,75 +30,94 @@ export const RequestForm = ({ isPublic = false, initialValues, onSubmit, isEditM
     const [towns, setTowns] = useState([]);
     const [subtowns, setSubtowns] = useState([]);
     const [filteredSubtowns, setFilteredSubtowns] = useState([]);
-    const [selectedTown, setSelectedTown] = useState(null);
     const [complaintTypes, setComplaintTypes] = useState([]);
     const [complaintSubTypes, setComplaintSubTypes] = useState([]);
     const [filteredSubTypes, setFilteredSubTypes] = useState([]);
-    const [selectedComplaintType, setSelectedComplaintType] = useState(null);
-    const [locationAccess, setLocationAccess] = useState(false);
-    const [locationLoading, setLocationLoading] = useState(false);
+    const [agentInfo, setAgentInfo] = useState(null);
+    const [loadingAgent, setLoadingAgent] = useState(true);
+
+    useEffect(() => {
+        // Fetch agent info
+        const fetchAgentInfo = async () => {
+            if (!session?.user?.id) return;
+            setLoadingAgent(true);
+            try {
+                const res = await fetch(`/api/agents?id=${session.user.id}`);
+                if (res.ok) {
+                    const data = await res.json();
+                    setAgentInfo(data);
+                }
+            } catch (error) {
+                console.error('Error fetching agent info:', error);
+            } finally {
+                setLoadingAgent(false);
+            }
+        };
+        fetchAgentInfo();
+    }, [session?.user?.id]);
 
     const formik = useFormik({
-        initialValues: {
-            town_id: '',
+        initialValues: initialValues || {
+            town_id: agentInfo?.town_id || '',
             subtown_id: '',
-            complaint_type_id: '',
+            complaint_type_id: agentInfo?.complaint_type_id || '',
             complaint_subtype_id: '',
             contact_number: '',
             address: '',
             description: '',
             latitude: null,
             longitude: null,
-            applicant_id: session?.user?.id || null,
+            creator_id: session?.user?.id || null,
+            creator_type: session?.user?.userType || 'agent',
         },
-        validationSchema,
+        validationSchema: Yup.object({
+            subtown_id: Yup.string().nullable(),
+            complaint_subtype_id: Yup.string().nullable(),
+            contact_number: Yup.string()
+                .required('Contact number is required')
+                .matches(/^[0-9]{10,15}$/, 'Must be a valid phone number'),
+            address: Yup.string().required('Address is required'),
+            description: Yup.string().required('Description is required'),
+            latitude: Yup.number().nullable(),
+            longitude: Yup.number().nullable(),
+        }),
+        enableReinitialize: true,
         onSubmit: async (values) => {
             if (onSubmit) {
                 await onSubmit(values);
             } else {
-                try {
-                    // Automatically add creator_id and creator_type from session if available
-                    let creatorType = null;
-                    if (session?.user?.userType === 'users') creatorType = 'user';
-                    else if (session?.user?.userType === 'agents') creatorType = 'agent';
-                    else if (session?.user?.userType === 'socialmediaperson') creatorType = 'socialmedia';
-                    else creatorType = session?.user?.userType || null;
-                    const payload = {
-                        ...values,
-                        creator_id: session?.user?.id || null,
-                        creator_type: creatorType,
-                    };
-                    const response = await fetch('/api/requests', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                        },
-                        body: JSON.stringify(payload),
-                    });
+            try {
+                const response = await fetch('/api/requests', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(values),
+                });
 
-                    if (response.ok) {
-                        toast({
-                            title: "Request submitted successfully",
-                            description: 'Your work request has been received.',
-                            variant: 'success',
-                        });
-                        formik.resetForm();
-                    } else {
-                        toast({
-                            title: "Failed to submit request",
-                            description: 'Please try again later.',
-                            variant: 'destructive',
-                        });
-                    }
-                } catch (error) {
-                    console.error('Error submitting form:', error);
+                if (response.ok) {
                     toast({
-                        title: "An error occurred",
+                        title: "Request submitted successfully",
+                        description: 'Your work request has been received.',
+                        variant: 'success',
+                    });
+                    formik.resetForm();
+                } else {
+                    toast({
+                        title: "Failed to submit request",
                         description: 'Please try again later.',
                         variant: 'destructive',
                     });
                 }
+            } catch (error) {
+                console.error('Error submitting form:', error);
+                toast({
+                    title: "An error occurred",
+                    description: 'Please try again later.',
+                    variant: 'destructive',
+                });
             }
+        }
         },
     });
 
@@ -195,6 +214,33 @@ export const RequestForm = ({ isPublic = false, initialValues, onSubmit, isEditM
         fetchComplaintSubTypes();
     }, []);
 
+    // Handle initial values for edit mode
+    useEffect(() => {
+        if (initialValues && isEditMode) {
+            // Set selected town
+            if (initialValues.town_id) {
+                const town = towns.find(t => t.id === initialValues.town_id);
+                if (town) {
+                    setSelectedTown({ value: town.id, label: town.town });
+                    // Filter subtowns for this town
+                    const filtered = subtowns.filter(subtown => subtown.town_id === town.id);
+                    setFilteredSubtowns(filtered);
+                }
+            }
+
+            // Set selected complaint type
+            if (initialValues.complaint_type_id) {
+                const complaintType = complaintTypes.find(ct => ct.id === initialValues.complaint_type_id);
+                if (complaintType) {
+                    setSelectedComplaintType({ value: complaintType.id, label: complaintType.type_name });
+                    // Filter subtypes for this complaint type
+                    const filtered = complaintSubTypes.filter(subtype => subtype.complaint_type_id === complaintType.id);
+                    setFilteredSubTypes(filtered);
+                }
+            }
+        }
+    }, [initialValues, isEditMode, towns, subtowns, complaintTypes, complaintSubTypes]);
+
     const handleTownChange = (selectedOption) => {
         setSelectedTown(selectedOption);
         const filtered = subtowns.filter(subtown => subtown.town_id === selectedOption.value);
@@ -232,108 +278,89 @@ export const RequestForm = ({ isPublic = false, initialValues, onSubmit, isEditM
         label: type.subtype_name
     }));
 
+    if (loadingAgent) {
+        return <div>Loading agent info...</div>;
+    }
+
+    // Find the town and complaint type names for display
+    const townName = towns.find(t => t.id === agentInfo?.town_id)?.town || '';
+    const complaintTypeName = complaintTypes.find(ct => ct.id === agentInfo?.complaint_type_id)?.type_name || '';
+
     return (
         <div className="container mx-auto p-4">
             <form onSubmit={formik.handleSubmit} className="max-w-3xl mx-auto bg-white p-6 rounded-lg shadow-md">
                 <h2 className="text-2xl font-bold mb-6 text-gray-800">
-                    {isPublic ? 'Submit Work Request' : 'Create New Work Request'}
+                    {isEditMode ? 'Edit Work Request' : isPublic ? 'Submit Work Request' : 'Create New Work Request'}
                 </h2>
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {/* Town */}
-                            <div>
-                                <label htmlFor="town_id" className="block text-sm font-medium text-gray-700 mb-1">
-                                    Town *
-                                </label>
-                                <Select
-                                    id="town_id"
-                                    name="town_id"
-                                    options={townOptions}
-                                    onChange={handleTownChange}
-                                    value={townOptions.find(option => option.value === formik.values.town_id) || null}
-                                    className="basic-select"
-                                    classNamePrefix="select"
-                                />
-                                {formik.errors.town_id && formik.touched.town_id && (
-                                    <p className="mt-1 text-sm text-red-600">{formik.errors.town_id}</p>
-                                )}
-                            </div>
+                    {/* Fixed Town */}
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Town *</label>
+                        <input
+                            type="text"
+                            value={townName}
+                            disabled
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100"
+                        />
+                        <input type="hidden" name="town_id" value={agentInfo?.town_id || ''} />
+                    </div>
+                    {/* Sub Town */}
+                    <div>
+                        <label htmlFor="subtown_id" className="block text-sm font-medium text-gray-700 mb-1">Sub Town (Optional)</label>
+                        <Select
+                            id="subtown_id"
+                            name="subtown_id"
+                            options={subtowns.filter(st => st.town_id === agentInfo?.town_id).map(st => ({ value: st.id, label: st.subtown }))}
+                            onChange={selectedOption => formik.setFieldValue('subtown_id', selectedOption ? selectedOption.value : '')}
+                            value={subtowns.filter(st => st.town_id === agentInfo?.town_id).map(st => ({ value: st.id, label: st.subtown })).find(option => option.value === formik.values.subtown_id) || null}
+                            className="basic-select"
+                            classNamePrefix="select"
+                        />
+                    </div>
+                    {/* Fixed Complaint Type */}
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Complaint Type *</label>
+                        <input
+                            type="text"
+                            value={complaintTypeName}
+                            disabled
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100"
+                        />
+                        <input type="hidden" name="complaint_type_id" value={agentInfo?.complaint_type_id || ''} />
+                    </div>
+                    {/* Complaint Subtype */}
+                    <div>
+                        <label htmlFor="complaint_subtype_id" className="block text-sm font-medium text-gray-700 mb-1">Complaint Subtype</label>
+                        <Select
+                            id="complaint_subtype_id"
+                            name="complaint_subtype_id"
+                            options={complaintSubTypes.filter(st => st.complaint_type_id === agentInfo?.complaint_type_id).map(st => ({ value: st.id, label: st.subtype_name }))}
+                            onChange={selectedOption => formik.setFieldValue('complaint_subtype_id', selectedOption ? selectedOption.value : '')}
+                            value={complaintSubTypes.filter(st => st.complaint_type_id === agentInfo?.complaint_type_id).map(st => ({ value: st.id, label: st.subtype_name })).find(option => option.value === formik.values.complaint_subtype_id) || null}
+                            className="basic-select"
+                            classNamePrefix="select"
+                        />
+                    </div>
 
-                            {/* Sub Town */}
-                            <div>
-                                <label htmlFor="subtown_id" className="block text-sm font-medium text-gray-700 mb-1">
-                                    Sub Town (Optional)
-                                </label>
-                                <Select
-                                    id="subtown_id"
-                                    name="subtown_id"
-                                    options={subtownOptions}
-                                    onChange={(selectedOption) => {
-                                        formik.setFieldValue('subtown_id', selectedOption ? selectedOption.value : '');
-                                    }}
-                                    value={subtownOptions.find(option => option.value === formik.values.subtown_id) || null}
-                                    className="basic-select"
-                                    classNamePrefix="select"
-                                    isDisabled={!selectedTown}
-                                />
-                            </div>
-
-                            {/* Complaint Type */}
-                            <div>
-                                <label htmlFor="complaint_type_id" className="block text-sm font-medium text-gray-700 mb-1">
-                                    Complaint Type *
-                                </label>
-                                <Select
-                                    id="complaint_type_id"
-                                    name="complaint_type_id"
-                                    options={complaintTypeOptions}
-                                    onChange={handleComplaintTypeChange}
-                                    value={complaintTypeOptions.find(option => option.value === formik.values.complaint_type_id) || null}
-                                    className="basic-select"
-                                    classNamePrefix="select"
-                                />
-                                {formik.errors.complaint_type_id && formik.touched.complaint_type_id && (
-                                    <p className="mt-1 text-sm text-red-600">{formik.errors.complaint_type_id}</p>
-                                )}
-                            </div>
-
-                            {/* Complaint Sub Type */}
-                            <div>
-                                <label htmlFor="complaint_subtype_id" className="block text-sm font-medium text-gray-700 mb-1">
-                                    Complaint Sub Type (Optional)
-                                </label>
-                                <Select
-                                    id="complaint_subtype_id"
-                                    name="complaint_subtype_id"
-                                    options={complaintSubTypeOptions}
-                                    onChange={(selectedOption) => {
-                                        formik.setFieldValue('complaint_subtype_id', selectedOption ? selectedOption.value : '');
-                                    }}
-                                    value={complaintSubTypeOptions.find(option => option.value === formik.values.complaint_subtype_id) || null}
-                                    className="basic-select"
-                                    classNamePrefix="select"
-                                    isDisabled={!selectedComplaintType}
-                                />
-                            </div>
-
-                            {/* Contact Number */}
-                            <div>
-                                <label htmlFor="contact_number" className="block text-sm font-medium text-gray-700 mb-1">
-                                    Contact Number *
-                                </label>
-                                <input
-                                    id="contact_number"
-                                    name="contact_number"
-                                    type="tel"
-                                    onChange={formik.handleChange}
-                                    onBlur={formik.handleBlur}
-                                    value={formik.values.contact_number}
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                                />
-                                {formik.errors.contact_number && formik.touched.contact_number && (
-                                    <p className="mt-1 text-sm text-red-600">{formik.errors.contact_number}</p>
-                                )}
-                            </div>
+                    {/* Contact Number */}
+                    <div>
+                        <label htmlFor="contact_number" className="block text-sm font-medium text-gray-700 mb-1">
+                            Contact Number *
+                        </label>
+                        <input
+                            id="contact_number"
+                            name="contact_number"
+                            type="tel"
+                            onChange={formik.handleChange}
+                            onBlur={formik.handleBlur}
+                            value={formik.values.contact_number}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                        />
+                        {formik.errors.contact_number && formik.touched.contact_number && (
+                            <p className="mt-1 text-sm text-red-600">{formik.errors.contact_number}</p>
+                        )}
+                    </div>
 
                     {/* Address */}
                     <div className="md:col-span-2">
@@ -354,27 +381,27 @@ export const RequestForm = ({ isPublic = false, initialValues, onSubmit, isEditM
                         )}
                     </div>
 
-                            {/* Description */}
-                            <div className="md:col-span-2">
-                                <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-1">
-                                    Description of Work *
-                                </label>
-                                <textarea
-                                    id="description"
-                                    name="description"
-                                    rows={5}
-                                    onChange={formik.handleChange}
-                                    onBlur={formik.handleBlur}
-                                    value={formik.values.description}
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                                />
-                                {formik.errors.description && formik.touched.description && (
-                                    <p className="mt-1 text-sm text-red-600">{formik.errors.description}</p>
-                                )}
-                            </div>
-                        </div>
+                    {/* Description */}
+                    <div className="md:col-span-2">
+                        <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-1">
+                            Description of Work *
+                        </label>
+                        <textarea
+                            id="description"
+                            name="description"
+                            rows={5}
+                            onChange={formik.handleChange}
+                            onBlur={formik.handleBlur}
+                            value={formik.values.description}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                        />
+                        {formik.errors.description && formik.touched.description && (
+                            <p className="mt-1 text-sm text-red-600">{formik.errors.description}</p>
+                        )}
+                    </div>
+                </div>
 
-                        <div className="md:col-span-2">
+                <div className="md:col-span-2">
                     <h3 className="text-lg font-medium mb-2">Location Details</h3>
                     
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -434,14 +461,14 @@ export const RequestForm = ({ isPublic = false, initialValues, onSubmit, isEditM
                         )}
                     </div>
                 </div>
-                        <div className="mt-6 flex justify-end">
-                            <button
-                                type="submit"
-                                className="px-4 py-2 bg-indigo-600 text-white font-medium rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-                            >
-                                Submit Request
-                            </button>
-                        </div>
+                <div className="mt-6 flex justify-end">
+                    <button
+                        type="submit"
+                        className="px-4 py-2 bg-indigo-600 text-white font-medium rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                    >
+                        Submit Request
+                    </button>
+                </div>
             </form>
         </div>
     );

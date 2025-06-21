@@ -34,8 +34,12 @@ export const authOptions = {
             const result = await client.query(query, [credentials.email]);
             if (result.rows.length > 0) {
               user = result.rows[0];
-              userType = table;
-              console.log(`User found in ${table} table`);
+              // Map table name to singular type
+              if (table === 'users') userType = 'user';
+              else if (table === 'agents') userType = 'agent';
+              else if (table === 'socialmediaperson') userType = 'socialmedia';
+              else userType = table;
+              console.log(`User found in ${table} table, mapped userType: ${userType}`);
               break;
             }
           }
@@ -62,7 +66,7 @@ export const authOptions = {
             name: user.name,
             email: user.email,
             role: user.role,
-            userType: userType
+            userType: userType // always singular now
           };
 
         } catch (error) {

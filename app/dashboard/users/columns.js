@@ -17,7 +17,7 @@ const getRoleName = (roleId) => {
     switch(roleId) {
         case 1: return 'Admin';
         case 2: return 'Manager';
-        case 3: return 'User';
+        case 3: return 'Accountant';
         default: return 'Unknown';
     }
 }
