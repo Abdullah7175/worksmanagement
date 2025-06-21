@@ -6,6 +6,7 @@ export async function GET(request) {
     const id = searchParams.get('id');
     const creator_id = searchParams.get('creator_id');
     const creator_type = searchParams.get('creator_type');
+    const assigned_smagent_id = searchParams.get('assigned_smagent_id');
     const page = parseInt(searchParams.get('page') || '1', 10);
     const limit = parseInt(searchParams.get('limit') || '0', 10);
     const offset = (page - 1) * limit;
@@ -66,11 +67,12 @@ export async function GET(request) {
             return NextResponse.json(result.rows[0], { status: 200 });
         } else if (limit > 0) {
             // Paginated with optional filter and creator filters
-            let countQuery = 'SELECT COUNT(*) FROM work_requests';
+            let countQuery = 'SELECT COUNT(*) FROM work_requests wr';
             let dataQuery = `
                 SELECT 
                     wr.id, 
                     wr.request_date, 
+                    wr.address,
                     ST_Y(wr.geo_tag) as latitude, 
                     ST_X(wr.geo_tag) as longitude, 
                     t.town as town_name, 
@@ -78,6 +80,7 @@ export async function GET(request) {
                     cst.subtype_name as complaint_subtype, 
                     wr.complaint_subtype_id, 
                     s.name as status_name,
+                    s.id as status_id,
                     COALESCE(u.name, ag.name, sm.name) as creator_name,
                     wr.creator_type
                 FROM work_requests wr 
@@ -89,32 +92,57 @@ export async function GET(request) {
                 LEFT JOIN agents ag ON wr.creator_type = 'agent' AND wr.creator_id = ag.id
                 LEFT JOIN socialmediaperson sm ON wr.creator_type = 'socialmedia' AND wr.creator_id = sm.id
             `;
+            
+            // Add JOIN for assigned social media agents if filtering by assigned_smagent_id
+            if (assigned_smagent_id) {
+                countQuery += ' JOIN request_assign_smagent ras ON wr.id = ras.work_requests_id';
+                dataQuery += ' JOIN request_assign_smagent ras ON wr.id = ras.work_requests_id';
+            }
+            
             let whereClauses = [];
             let params = [];
             let paramIdx = 1;
+            
             if (creator_id && creator_type) {
-                whereClauses.push(`creator_id = $${paramIdx} AND creator_type = $${paramIdx + 1}`);
+                whereClauses.push(`wr.creator_id = $${paramIdx} AND wr.creator_type = $${paramIdx + 1}`);
                 params.push(creator_id, creator_type);
                 paramIdx += 2;
             }
+            
+            if (assigned_smagent_id) {
+                whereClauses.push(`ras.socialmedia_agent_id = $${paramIdx}`);
+                params.push(assigned_smagent_id);
+                paramIdx += 1;
+            }
+            
             if (filter) {
-                whereClauses.push(`(address ILIKE $${paramIdx} OR u.name ILIKE $${paramIdx} OR ag.name ILIKE $${paramIdx} OR sm.name ILIKE $${paramIdx} OR ct.type_name ILIKE $${paramIdx})`);
+                whereClauses.push(`(wr.address ILIKE $${paramIdx} OR u.name ILIKE $${paramIdx} OR ag.name ILIKE $${paramIdx} OR sm.name ILIKE $${paramIdx} OR ct.type_name ILIKE $${paramIdx})`);
                 params.push(`%${filter}%`);
                 paramIdx += 1;
             }
+            
             let dataWhereClauses = [];
             let dataParamIdx = 1;
             let dataParams = [];
+            
             if (creator_id && creator_type) {
                 dataWhereClauses.push(`wr.creator_id = $${dataParamIdx} AND wr.creator_type = $${dataParamIdx + 1}`);
                 dataParams.push(creator_id, creator_type);
                 dataParamIdx += 2;
             }
+            
+            if (assigned_smagent_id) {
+                dataWhereClauses.push(`ras.socialmedia_agent_id = $${dataParamIdx}`);
+                dataParams.push(assigned_smagent_id);
+                dataParamIdx += 1;
+            }
+            
             if (filter) {
                 dataWhereClauses.push(`(wr.address ILIKE $${dataParamIdx} OR u.name ILIKE $${dataParamIdx} OR ag.name ILIKE $${dataParamIdx} OR sm.name ILIKE $${dataParamIdx} OR ct.type_name ILIKE $${dataParamIdx})`);
                 dataParams.push(`%${filter}%`);
                 dataParamIdx += 1;
             }
+            
             if (whereClauses.length > 0) {
                 countQuery += ' WHERE ' + whereClauses.join(' AND ');
             }
@@ -132,11 +160,13 @@ export async function GET(request) {
                 SELECT 
                     wr.id,
                     wr.request_date,
+                    wr.address,
                     ST_Y(wr.geo_tag) as latitude,
                     ST_X(wr.geo_tag) as longitude,
                     t.town as town_name,
                     ct.type_name as complaint_type,
                     s.name as status_name,
+                    s.id as status_id,
                     COALESCE(u.name, ag.name, sm.name) as creator_name,
                     wr.creator_type
                 FROM work_requests wr

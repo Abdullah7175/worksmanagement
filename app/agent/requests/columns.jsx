@@ -169,6 +169,7 @@ export function getAgentRequestColumns({ onAddImage, onAddVideo }) {
       return <span className="text-gray-400">No location</span>;
     }
   },
+   
     {
       accessorKey: "status_name",
       header: "Status",

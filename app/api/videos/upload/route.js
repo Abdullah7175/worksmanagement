@@ -61,13 +61,18 @@ export async function POST(req) {
         
         const workRequestId = formData.get('workRequestId');
         const description = formData.get('description');
-        const geoTag = formData.get('geo_tag');
+        const latitude = formData.get('latitude');
+        const longitude = formData.get('longitude');
         const file = formData.get('vid');
         const creatorId = formData.get('creator_id');
         const creatorType = formData.get('creator_type');
 
         if (!workRequestId || !description || !file) {
             return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
+        }
+
+        if (!latitude || !longitude) {
+            return NextResponse.json({ error: 'Location coordinates are required' }, { status: 400 });
         }
 
         // Save the file
@@ -78,6 +83,9 @@ export async function POST(req) {
         const filename = `${Date.now()}-${file.name}`;
         const filePath = path.join(uploadsDir, filename);
         await fs.writeFile(filePath, Buffer.from(buffer));
+
+        // Create geo_tag from latitude and longitude
+        const geoTag = `SRID=4326;POINT(${longitude} ${latitude})`;
 
         // Save to database
         const client = await connectToDatabase();
@@ -90,7 +98,7 @@ export async function POST(req) {
             workRequestId,
             description,
             `/uploads/videos/${filename}`,
-            geoTag || null,
+            geoTag,
             creatorId || null,
             creatorType || null
         ]);

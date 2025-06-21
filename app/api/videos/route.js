@@ -176,10 +176,10 @@ export async function GET(request) {
                 dataQuery += ' WHERE v.description ILIKE $1 OR CAST(v.work_request_id AS TEXT) ILIKE $1';
                 params = [`%${filter}%`];
             }
-            dataQuery += ' ORDER BY v.created_at DESC LIMIT $2 OFFSET $3';
+            dataQuery += ' ORDER BY v.created_at DESC LIMIT $' + (params.length + 1) + ' OFFSET $' + (params.length + 2);
             const countResult = filter ? await client.query(countQuery, params) : await client.query(countQuery);
             const total = parseInt(countResult.rows[0].count, 10);
-            const dataParams = filter ? [...params, limit, offset] : [limit, offset];
+            const dataParams = [...params, limit, offset];
             const result = await client.query(dataQuery, dataParams);
             return NextResponse.json({ data: result.rows, total }, { status: 200 });
         } else {

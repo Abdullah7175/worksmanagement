@@ -124,27 +124,34 @@ export function AppSidebar() {
                                         <CollapsibleTrigger asChild>
                                             <SidebarMenuButton className={`text-base gap-2 py-6`}>
                                                 <Map className="w-5 h-5" />
-                                                <span>Town Control</span>
+                                                <span>Location Control</span>
                                                 <ChevronDown />
                                             </SidebarMenuButton>
                                         </CollapsibleTrigger>
                                         <CollapsibleContent>
                                             <SidebarMenuSub>
-                                                
                                                 <SidebarMenuSubItem
-                                                    className={`py-2 text-base ml-2 text-gray-500 underline ${pathname === "/dashboard/complaints/types" ? "font-bold text-blue-950" : ""
+                                                    className={`py-2 text-base ml-2 text-gray-500 underline ${pathname === "/dashboard/districts" ? "font-bold text-blue-950" : ""
                                                         }`}
                                                 >
-                                                    <Link href="/dashboard/complaints/types">
-                                                        <span>Add Town</span>
+                                                    <Link href="/dashboard/districts">
+                                                        <span>Manage Districts</span>
                                                     </Link>
                                                 </SidebarMenuSubItem>
                                                 <SidebarMenuSubItem
-                                                    className={`py-2 text-base ml-2 text-gray-500 underline ${pathname === "/dashboard/complaints/sub-types" ? "font-bold text-blue-950" : ""
+                                                    className={`py-2 text-base ml-2 text-gray-500 underline ${pathname === "/dashboard/towns" ? "font-bold text-blue-950" : ""
                                                         }`}
                                                 >
-                                                    <Link href="/dashboard/complaints/sub-types">
-                                                        <span>Add Subtown</span>
+                                                    <Link href="/dashboard/towns">
+                                                        <span>Manage Towns</span>
+                                                    </Link>
+                                                </SidebarMenuSubItem>
+                                                <SidebarMenuSubItem
+                                                    className={`py-2 text-base ml-2 text-gray-500 underline ${pathname === "/dashboard/subtowns" ? "font-bold text-blue-950" : ""
+                                                        }`}
+                                                >
+                                                    <Link href="/dashboard/subtowns">
+                                                        <span>Manage Subtowns</span>
                                                     </Link>
                                                 </SidebarMenuSubItem>
                                             </SidebarMenuSub>

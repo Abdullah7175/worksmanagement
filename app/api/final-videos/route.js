@@ -1,7 +1,7 @@
-import path from 'path';
-import { promises as fs } from 'fs';
 import { NextResponse } from 'next/server';
 import { connectToDatabase } from '@/lib/db';
+import { promises as fs } from 'fs';
+import path from 'path';
 
 export async function GET(request) {
     const { searchParams } = new URL(request.url);
@@ -11,56 +11,56 @@ export async function GET(request) {
     const limit = parseInt(searchParams.get('limit') || '0', 10);
     const offset = (page - 1) * limit;
     const filter = searchParams.get('filter') || '';
-    const client = await connectToDatabase();
     const creatorId = searchParams.get('creator_id');
     const creatorType = searchParams.get('creator_type');
+    const client = await connectToDatabase();
 
     try {
         if (id) {
             const query = `
-                SELECT i.*, wr.request_date, wr.address, ST_AsGeoJSON(i.geo_tag) as geo_tag
-                FROM images i
-                JOIN work_requests wr ON i.work_request_id = wr.id
-                WHERE i.id = $1
+                SELECT fv.*, wr.request_date, wr.address, ST_AsGeoJSON(fv.geo_tag) as geo_tag
+                FROM final_videos fv
+                JOIN work_requests wr ON fv.work_request_id = wr.id
+                WHERE fv.id = $1
             `;
             const result = await client.query(query, [id]);
 
             if (result.rows.length === 0) {
-                return NextResponse.json({ error: 'Image not found' }, { status: 404 });
+                return NextResponse.json({ error: 'Final video not found' }, { status: 404 });
             }
 
             return NextResponse.json(result.rows[0], { status: 200 });
         } else if (creatorId && creatorType) {
             const query = `
-                SELECT i.*, wr.request_date, wr.address, ST_AsGeoJSON(i.geo_tag) as geo_tag
-                FROM images i
-                JOIN work_requests wr ON i.work_request_id = wr.id
-                WHERE i.creator_id = $1 AND i.creator_type = $2
-                ORDER BY i.created_at DESC
+                SELECT fv.*, wr.request_date, wr.address, ST_AsGeoJSON(fv.geo_tag) as geo_tag
+                FROM final_videos fv
+                JOIN work_requests wr ON fv.work_request_id = wr.id
+                WHERE fv.creator_id = $1 AND fv.creator_type = $2
+                ORDER BY fv.created_at DESC
             `;
             const result = await client.query(query, [creatorId, creatorType]);
             return NextResponse.json(result.rows, { status: 200 });
         } else if (workRequestId) {
             const query = `
-                SELECT i.*, wr.request_date, wr.address, ST_AsGeoJSON(i.geo_tag) as geo_tag
-                FROM images i
-                JOIN work_requests wr ON i.work_request_id = wr.id
-                WHERE i.work_request_id = $1
-                ORDER BY i.created_at DESC
+                SELECT fv.*, wr.request_date, wr.address, ST_AsGeoJSON(fv.geo_tag) as geo_tag
+                FROM final_videos fv
+                JOIN work_requests wr ON fv.work_request_id = wr.id
+                WHERE fv.work_request_id = $1
+                ORDER BY fv.created_at DESC
             `;
             const result = await client.query(query, [workRequestId]);
             return NextResponse.json(result.rows, { status: 200 });
         } else if (limit > 0) {
             // Paginated with optional filter
-            let countQuery = 'SELECT COUNT(*) FROM images';
-            let dataQuery = `SELECT i.*, wr.request_date, wr.address, ST_AsGeoJSON(i.geo_tag) as geo_tag FROM images i JOIN work_requests wr ON i.work_request_id = wr.id`;
+            let countQuery = 'SELECT COUNT(*) FROM final_videos';
+            let dataQuery = `SELECT fv.*, wr.request_date, wr.address, ST_AsGeoJSON(fv.geo_tag) as geo_tag FROM final_videos fv JOIN work_requests wr ON fv.work_request_id = wr.id`;
             let params = [];
             if (filter) {
-                countQuery += ' WHERE description ILIKE $1 OR CAST(i.work_request_id AS TEXT) ILIKE $1';
-                dataQuery += ' WHERE i.description ILIKE $1 OR CAST(i.work_request_id AS TEXT) ILIKE $1';
+                countQuery += ' WHERE description ILIKE $1 OR CAST(work_request_id AS TEXT) ILIKE $1';
+                dataQuery += ' WHERE fv.description ILIKE $1 OR CAST(fv.work_request_id AS TEXT) ILIKE $1';
                 params = [`%${filter}%`];
             }
-            dataQuery += ' ORDER BY i.created_at DESC LIMIT $2 OFFSET $3';
+            dataQuery += ' ORDER BY fv.created_at DESC LIMIT $2 OFFSET $3';
             const countResult = filter ? await client.query(countQuery, params) : await client.query(countQuery);
             const total = parseInt(countResult.rows[0].count, 10);
             const dataParams = filter ? [...params, limit, offset] : [limit, offset];
@@ -68,10 +68,10 @@ export async function GET(request) {
             return NextResponse.json({ data: result.rows, total }, { status: 200 });
         } else {
             const query = `
-                SELECT i.*, wr.request_date, wr.address, ST_AsGeoJSON(i.geo_tag) as geo_tag
-                FROM images i
-                JOIN work_requests wr ON i.work_request_id = wr.id
-                ORDER BY i.created_at DESC
+                SELECT fv.*, wr.request_date, wr.address, ST_AsGeoJSON(fv.geo_tag) as geo_tag
+                FROM final_videos fv
+                JOIN work_requests wr ON fv.work_request_id = wr.id
+                ORDER BY fv.created_at DESC
             `;
             const result = await client.query(query);
             return NextResponse.json(result.rows, { status: 200 });
@@ -92,11 +92,12 @@ export async function POST(req) {
         const description = formData.get('description');
         const latitude = formData.get('latitude');
         const longitude = formData.get('longitude');
-        const file = formData.get('img');
+        const file = formData.get('videoFile');
         const creatorId = formData.get('creator_id');
         const creatorType = formData.get('creator_type');
+        const creatorName = formData.get('creator_name');
 
-        if (!workRequestId || !description || !file) {
+        if (!workRequestId || !description || !file || !creatorId || !creatorType) {
             return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
         }
 
@@ -104,8 +105,15 @@ export async function POST(req) {
             return NextResponse.json({ error: 'Location coordinates are required' }, { status: 400 });
         }
 
+        // Validate creator type (only social media agents can upload final videos)
+        if (creatorType !== 'socialmedia') {
+            return NextResponse.json({ 
+                error: 'Only social media agents can upload final videos' 
+            }, { status: 403 });
+        }
+
         // Save the file
-        const uploadsDir = path.join(process.cwd(), 'public', 'uploads', 'images');
+        const uploadsDir = path.join(process.cwd(), 'public', 'uploads', 'final-videos');
         await fs.mkdir(uploadsDir, { recursive: true });
         
         const buffer = await file.arrayBuffer();
@@ -119,22 +127,23 @@ export async function POST(req) {
         // Save to database
         const client = await connectToDatabase();
         const query = `
-            INSERT INTO images (work_request_id, description, link, geo_tag, created_at, updated_at, creator_id, creator_type)
-            VALUES ($1, $2, $3, ST_GeomFromText($4, 4326), NOW(), NOW(), $5, $6)
+            INSERT INTO final_videos (work_request_id, description, link, geo_tag, created_at, updated_at, creator_id, creator_type, creator_name)
+            VALUES ($1, $2, $3, ST_GeomFromText($4, 4326), NOW(), NOW(), $5, $6, $7)
             RETURNING *;
         `;
         const { rows } = await client.query(query, [
             workRequestId,
             description,
-            `/uploads/images/${filename}`,
+            `/uploads/final-videos/${filename}`,
             geoTag,
-            creatorId || null,
-            creatorType || null
+            creatorId,
+            creatorType,
+            creatorName || null
         ]);
 
         return NextResponse.json({
-            message: 'Image uploaded successfully',
-            image: rows[0]
+            message: 'Final video uploaded successfully',
+            video: rows[0]
         }, { status: 201 });
 
     } catch (error) {
@@ -154,28 +163,28 @@ export async function PUT(req) {
         }
 
         const query = `
-            UPDATE images 
+            UPDATE final_videos 
             SET work_request_id = $1, 
                 description = $2,
                 updated_at = NOW()
             WHERE id = $3
             RETURNING *;
         `; 
-        const { rows: updatedImage } = await client.query(query, [
+        const { rows: updatedVideo } = await client.query(query, [
             workRequestId,
             description,
             id
         ]);
 
-        if (updatedImage.length === 0) {
-            return NextResponse.json({ error: 'Image not found' }, { status: 404 });
+        if (updatedVideo.length === 0) {
+            return NextResponse.json({ error: 'Final video not found' }, { status: 404 });
         }
 
-        return NextResponse.json({ message: 'Image updated successfully', image: updatedImage[0] }, { status: 200 });
+        return NextResponse.json({ message: 'Final video updated successfully', video: updatedVideo[0] }, { status: 200 });
 
     } catch (error) {
-        console.error('Error updating image:', error);
-        return NextResponse.json({ error: 'Error updating image' }, { status: 500 });
+        console.error('Error updating final video:', error);
+        return NextResponse.json({ error: 'Error updating final video' }, { status: 500 });
     }
 }
 
@@ -187,40 +196,40 @@ export async function DELETE(req) {
         const { id } = body;
 
         if (!id) {
-            return NextResponse.json({ error: 'Image Id is required' }, { status: 400 });
+            return NextResponse.json({ error: 'Final video ID is required' }, { status: 400 });
         }
 
-        // First get the image to delete the file
-        const getQuery = 'SELECT link FROM images WHERE id = $1';
-        const { rows: [image] } = await client.query(getQuery, [id]);
+        // First get the video to delete the file
+        const getQuery = 'SELECT link FROM final_videos WHERE id = $1';
+        const { rows: [video] } = await client.query(getQuery, [id]);
 
-        if (!image) {
-            return NextResponse.json({ error: 'Image not found' }, { status: 404 });
+        if (!video) {
+            return NextResponse.json({ error: 'Final video not found' }, { status: 404 });
         }
 
         // Delete the file
-        if (image.link) {
+        if (video.link) {
             try {
-                const filePath = path.join(process.cwd(), 'public', image.link);
+                const filePath = path.join(process.cwd(), 'public', video.link);
                 await fs.unlink(filePath);
             } catch (fileError) {
-                console.error('Error deleting image file:', fileError);
+                console.error('Error deleting final video file:', fileError);
             }
         }
 
         // Delete from database
         const deleteQuery = `
-            DELETE FROM images 
+            DELETE FROM final_videos 
             WHERE id = $1
             RETURNING *;
         `;
 
-        const { rows: deletedImage } = await client.query(deleteQuery, [id]);
+        const { rows: deletedVideo } = await client.query(deleteQuery, [id]);
 
-        return NextResponse.json({ message: 'Image deleted successfully', image: deletedImage[0] }, { status: 200 });
+        return NextResponse.json({ message: 'Final video deleted successfully', video: deletedVideo[0] }, { status: 200 });
 
     } catch (error) {
-        console.error('Error deleting image:', error);
-        return NextResponse.json({ error: 'Error deleting image' }, { status: 500 });
+        console.error('Error deleting final video:', error);
+        return NextResponse.json({ error: 'Error deleting final video' }, { status: 500 });
     }
-}
+} 

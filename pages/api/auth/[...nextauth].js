@@ -58,7 +58,7 @@ export const authOptions = {
           }
 
           console.log("Password verified successfully");
-          console.log("User authenticated:", { id: user.id, name: user.name, userType });
+          console.log("User authenticated:", { id: user.id, name: user.name, userType, role: user.role });
 
           // Return user data for NextAuth
           return {
@@ -93,6 +93,7 @@ export const authOptions = {
   callbacks: {
     async jwt({ token, user }) {
       if (user) {
+        console.log("JWT callback - user data:", user);
         token.user = {
           id: user.id,
           name: user.name,
@@ -100,11 +101,14 @@ export const authOptions = {
           role: user.role,
           userType: user.userType
         };
+        console.log("JWT callback - token.user:", token.user);
       }
       return token;
     },
     async session({ session, token }) {
+      console.log("Session callback - token.user:", token.user);
       session.user = token.user;
+      console.log("Session callback - final session.user:", session.user);
       return session;
     }
   }

@@ -27,43 +27,61 @@ export default function LoginPage() {
     },
     validationSchema,
     onSubmit: async (values) => {
-      const result = await signIn("credentials", {
-        redirect: false,
-        email: values.email,
-        password: values.password,
-      });
+      try {
+        const result = await signIn("credentials", {
+          redirect: false,
+          email: values.email,
+          password: values.password,
+        });
 
-      if (result?.error) {
+        if (result?.error) {
+          toast({
+            title: "Login Failed",
+            description: result.error,
+            variant: "destructive",
+          });
+          return;
+        }
+
+        if (result?.ok) {
+          // Wait a moment for the session to be set
+          setTimeout(async () => {
+            try {
+              const sessionRes = await fetch("/api/auth/session");
+              const session = await sessionRes.json();
+              
+              console.log("Session data:", session);
+              
+              // Redirect based on user type
+              const userType = session?.user?.userType;
+              console.log("User type:", userType);
+              
+              switch (userType) {
+                case "agent":
+                  router.push("/agent");
+                  break;
+                case "socialmedia":
+                  router.push("/smagent");
+                  break;
+                case "user":
+                default:
+                  router.push("/dashboard");
+                  break;
+              }
+            } catch (error) {
+              console.error("Error getting session:", error);
+              // Fallback redirect
+              router.push("/dashboard");
+            }
+          }, 1000);
+        }
+      } catch (error) {
+        console.error("Login error:", error);
         toast({
           title: "Login Failed",
-          description: result.error,
+          description: "An unexpected error occurred",
           variant: "destructive",
         });
-        return;
-      }
-
-      if (result?.ok) {
-        // Store token in localStorage (optional)
-        const sessionRes = await fetch("/api/auth/session");
-        const session = await sessionRes.json();
-        
-        if (session?.accessToken) {
-          // Set cookie for backend API (expires in 1 hour, same as JWT)
-          document.cookie = `jwtToken=${session.accessToken}; path=/; max-age=3600; SameSite=Strict;`;
-          localStorage.setItem("jwtToken", session.accessToken);
-        }
-
-        // Redirect based on user type
-        switch (session.user?.userType) {
-          case "agent":
-            router.push("/agent");
-            break;
-          case "socialmedia":
-            router.push("/smagent");
-            break;
-          default:
-            router.push("/dashboard");
-        }
       }
     },
   });
