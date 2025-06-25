@@ -355,7 +355,7 @@ export default function AddImagePage() {
               </div>
               <div>
                 <span className="text-gray-600">Creator Type:</span>
-                <span className="ml-2 font-medium">socialmedia</span>
+                <span className="ml-2 font-medium">mediacell</span>
               </div>
             </div>
           </div>

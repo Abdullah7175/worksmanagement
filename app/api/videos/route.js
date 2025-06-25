@@ -127,6 +127,8 @@ export async function GET(request) {
     const limit = parseInt(searchParams.get('limit') || '0', 10);
     const offset = (page - 1) * limit;
     const filter = searchParams.get('filter') || '';
+    const dateFrom = searchParams.get('date_from');
+    const dateTo = searchParams.get('date_to');
     const creatorId = searchParams.get('creator_id');
     const creatorType = searchParams.get('creator_type');
     const client = await connectToDatabase();
@@ -155,7 +157,7 @@ export async function GET(request) {
                 ORDER BY v.created_at DESC
             `;
             const result = await client.query(query, [creatorId, creatorType]);
-            return NextResponse.json(result.rows, { status: 200 });
+            return NextResponse.json({ data: result.rows, total: result.rows.length }, { status: 200 });
         } else if (workRequestId) {
             const query = `
                 SELECT v.*, wr.request_date, wr.address ,ST_Y(v.geo_tag) as latitude,ST_X(v.geo_tag) as longitude
@@ -165,32 +167,46 @@ export async function GET(request) {
                 ORDER BY v.created_at DESC
             `;
             const result = await client.query(query, [workRequestId]);
-            return NextResponse.json(result.rows, { status: 200 });
-        } else if (limit > 0) {
-            // Paginated with optional filter
-            let countQuery = 'SELECT COUNT(*) FROM videos';
-            let dataQuery = `SELECT v.*, wr.request_date, wr.address ,ST_Y(v.geo_tag) as latitude,ST_X(v.geo_tag) as longitude FROM videos v JOIN work_requests wr ON v.work_request_id = wr.id`;
-            let params = [];
-            if (filter) {
-                countQuery += ' WHERE v.description ILIKE $1 OR CAST(v.work_request_id AS TEXT) ILIKE $1';
-                dataQuery += ' WHERE v.description ILIKE $1 OR CAST(v.work_request_id AS TEXT) ILIKE $1';
-                params = [`%${filter}%`];
-            }
-            dataQuery += ' ORDER BY v.created_at DESC LIMIT $' + (params.length + 1) + ' OFFSET $' + (params.length + 2);
-            const countResult = filter ? await client.query(countQuery, params) : await client.query(countQuery);
-            const total = parseInt(countResult.rows[0].count, 10);
-            const dataParams = [...params, limit, offset];
-            const result = await client.query(dataQuery, dataParams);
-            return NextResponse.json({ data: result.rows, total }, { status: 200 });
+            return NextResponse.json({ data: result.rows, total: result.rows.length }, { status: 200 });
         } else {
-            const query = `
-                SELECT v.*, wr.request_date, wr.address ,ST_Y(v.geo_tag) as latitude,ST_X(v.geo_tag) as longitude
-                FROM videos v
-                JOIN work_requests wr ON v.work_request_id = wr.id
-                ORDER BY v.created_at DESC
-            `;
-            const result = await client.query(query);
-            return NextResponse.json(result.rows, { status: 200 });
+            let countQuery = 'SELECT COUNT(*) FROM videos v JOIN work_requests wr ON v.work_request_id = wr.id';
+            let dataQuery = `SELECT v.*, wr.request_date, wr.address ,ST_Y(v.geo_tag) as latitude,ST_X(v.geo_tag) as longitude FROM videos v JOIN work_requests wr ON v.work_request_id = wr.id`;
+            let whereClauses = [];
+            let params = [];
+            let paramIdx = 1;
+            if (filter) {
+                whereClauses.push(`(
+                    CAST(v.id AS TEXT) ILIKE $${paramIdx} OR
+                    v.description ILIKE $${paramIdx} OR
+                    wr.address ILIKE $${paramIdx} OR
+                    CAST(v.work_request_id AS TEXT) ILIKE $${paramIdx}
+                )`);
+                params.push(`%${filter}%`);
+                paramIdx++;
+            }
+            if (dateFrom) {
+                whereClauses.push(`v.created_at >= $${paramIdx}`);
+                params.push(dateFrom);
+                paramIdx++;
+            }
+            if (dateTo) {
+                whereClauses.push(`v.created_at <= $${paramIdx}`);
+                params.push(dateTo);
+                paramIdx++;
+            }
+            if (whereClauses.length > 0) {
+                countQuery += ' WHERE ' + whereClauses.join(' AND ');
+                dataQuery += ' WHERE ' + whereClauses.join(' AND ');
+            }
+            dataQuery += ' ORDER BY v.created_at DESC';
+            if (limit > 0) {
+                dataQuery += ` LIMIT $${paramIdx} OFFSET $${paramIdx + 1}`;
+                params.push(limit, offset);
+            }
+            const countResult = await client.query(countQuery, params.slice(0, params.length - (limit > 0 ? 2 : 0)));
+            const total = parseInt(countResult.rows[0].count, 10);
+            const result = await client.query(dataQuery, params);
+            return NextResponse.json({ data: result.rows, total }, { status: 200 });
         }
     } catch (error) {
         console.error('Error fetching data:', error);

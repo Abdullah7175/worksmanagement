@@ -95,7 +95,7 @@ export function SmAgentSidebar() {
     return (
       <aside className="w-64 bg-gray-900 text-white flex flex-col shadow-lg border-r border-gray-800">
         <div className="flex items-center justify-center h-16 border-b border-gray-800">
-          <span className="text-xl font-bold tracking-wide">Social Media Agent</span>
+          <span className="text-xl font-bold tracking-wide">Media Cell</span>
         </div>
         <div className="px-4 py-2 text-xs text-gray-400 border-b border-gray-800">
           Loading...
@@ -114,7 +114,7 @@ export function SmAgentSidebar() {
   return (
     <aside className="w-64 bg-gray-900 text-white flex flex-col shadow-lg border-r border-gray-800">
       <div className="flex items-center justify-center h-16 border-b border-gray-800">
-        <span className="text-xl font-bold tracking-wide">Social Media Agent</span>
+        <span className="text-xl font-bold tracking-wide">Media Cell</span>
       </div>
       <div className="px-4 py-2 text-xs text-gray-400 border-b border-gray-800">
         {getRoleDisplayText()}

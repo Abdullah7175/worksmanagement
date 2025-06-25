@@ -11,6 +11,8 @@ export async function GET(request) {
     const limit = parseInt(searchParams.get('limit') || '0', 10);
     const offset = (page - 1) * limit;
     const filter = searchParams.get('filter') || '';
+    const dateFrom = searchParams.get('date_from');
+    const dateTo = searchParams.get('date_to');
     const client = await connectToDatabase();
     const creatorId = searchParams.get('creator_id');
     const creatorType = searchParams.get('creator_type');
@@ -39,7 +41,7 @@ export async function GET(request) {
                 ORDER BY i.created_at DESC
             `;
             const result = await client.query(query, [creatorId, creatorType]);
-            return NextResponse.json(result.rows, { status: 200 });
+            return NextResponse.json({ data: result.rows, total: result.rows.length }, { status: 200 });
         } else if (workRequestId) {
             const query = `
                 SELECT i.*, wr.request_date, wr.address, ST_AsGeoJSON(i.geo_tag) as geo_tag
@@ -49,32 +51,56 @@ export async function GET(request) {
                 ORDER BY i.created_at DESC
             `;
             const result = await client.query(query, [workRequestId]);
-            return NextResponse.json(result.rows, { status: 200 });
-        } else if (limit > 0) {
-            // Paginated with optional filter
-            let countQuery = 'SELECT COUNT(*) FROM images';
-            let dataQuery = `SELECT i.*, wr.request_date, wr.address, ST_AsGeoJSON(i.geo_tag) as geo_tag FROM images i JOIN work_requests wr ON i.work_request_id = wr.id`;
-            let params = [];
-            if (filter) {
-                countQuery += ' WHERE description ILIKE $1 OR CAST(i.work_request_id AS TEXT) ILIKE $1';
-                dataQuery += ' WHERE i.description ILIKE $1 OR CAST(i.work_request_id AS TEXT) ILIKE $1';
-                params = [`%${filter}%`];
-            }
-            dataQuery += ' ORDER BY i.created_at DESC LIMIT $2 OFFSET $3';
-            const countResult = filter ? await client.query(countQuery, params) : await client.query(countQuery);
-            const total = parseInt(countResult.rows[0].count, 10);
-            const dataParams = filter ? [...params, limit, offset] : [limit, offset];
-            const result = await client.query(dataQuery, dataParams);
-            return NextResponse.json({ data: result.rows, total }, { status: 200 });
+            return NextResponse.json({ data: result.rows, total: result.rows.length }, { status: 200 });
         } else {
-            const query = `
-                SELECT i.*, wr.request_date, wr.address, ST_AsGeoJSON(i.geo_tag) as geo_tag
-                FROM images i
-                JOIN work_requests wr ON i.work_request_id = wr.id
-                ORDER BY i.created_at DESC
-            `;
-            const result = await client.query(query);
-            return NextResponse.json(result.rows, { status: 200 });
+            let countQuery = 'SELECT COUNT(*) FROM images i JOIN work_requests wr ON i.work_request_id = wr.id';
+            let dataQuery = `SELECT i.*, wr.request_date, wr.address, ST_AsGeoJSON(i.geo_tag) as geo_tag FROM images i JOIN work_requests wr ON i.work_request_id = wr.id`;
+            let whereClauses = [];
+            let params = [];
+            let paramIdx = 1;
+            if (creatorId && creatorType) {
+                whereClauses.push(`i.creator_id = $${paramIdx} AND i.creator_type = $${paramIdx + 1}`);
+                params.push(creatorId, creatorType);
+                paramIdx += 2;
+            }
+            if (workRequestId) {
+                whereClauses.push(`i.work_request_id = $${paramIdx}`);
+                params.push(workRequestId);
+                paramIdx++;
+            }
+            if (filter) {
+                whereClauses.push(`(
+                    CAST(i.id AS TEXT) ILIKE $${paramIdx} OR
+                    i.description ILIKE $${paramIdx} OR
+                    wr.address ILIKE $${paramIdx} OR
+                    CAST(i.work_request_id AS TEXT) ILIKE $${paramIdx}
+                )`);
+                params.push(`%${filter}%`);
+                paramIdx++;
+            }
+            if (dateFrom) {
+                whereClauses.push(`i.created_at >= $${paramIdx}`);
+                params.push(dateFrom);
+                paramIdx++;
+            }
+            if (dateTo) {
+                whereClauses.push(`i.created_at <= $${paramIdx}`);
+                params.push(dateTo);
+                paramIdx++;
+            }
+            if (whereClauses.length > 0) {
+                countQuery += ' WHERE ' + whereClauses.join(' AND ');
+                dataQuery += ' WHERE ' + whereClauses.join(' AND ');
+            }
+            dataQuery += ' ORDER BY i.created_at DESC';
+            if (limit > 0) {
+                dataQuery += ` LIMIT $${paramIdx} OFFSET $${paramIdx + 1}`;
+                params.push(limit, offset);
+            }
+            const countResult = await client.query(countQuery, params.slice(0, params.length - (limit > 0 ? 2 : 0)));
+            const total = parseInt(countResult.rows[0].count, 10);
+            const result = await client.query(dataQuery, params);
+            return NextResponse.json({ data: result.rows, total }, { status: 200 });
         }
     } catch (error) {
         console.error('Error fetching data:', error);
@@ -87,59 +113,60 @@ export async function GET(request) {
 export async function POST(req) {
     try {
         const formData = await req.formData();
-        
         const workRequestId = formData.get('workRequestId');
-        const description = formData.get('description');
-        const latitude = formData.get('latitude');
-        const longitude = formData.get('longitude');
-        const file = formData.get('img');
         const creatorId = formData.get('creator_id');
         const creatorType = formData.get('creator_type');
+        const files = formData.getAll('img');
+        const descriptions = formData.getAll('description');
+        const latitudes = formData.getAll('latitude');
+        const longitudes = formData.getAll('longitude');
 
-        if (!workRequestId || !description || !file) {
-            return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
+        if (!workRequestId || files.length === 0) {
+            return NextResponse.json({ error: 'Work Request ID and at least one image are required' }, { status: 400 });
+        }
+        if (files.length !== descriptions.length || files.length !== latitudes.length || files.length !== longitudes.length) {
+            return NextResponse.json({ error: 'Each image must have a description, latitude, and longitude' }, { status: 400 });
         }
 
-        if (!latitude || !longitude) {
-            return NextResponse.json({ error: 'Location coordinates are required' }, { status: 400 });
-        }
-
-        // Save the file
         const uploadsDir = path.join(process.cwd(), 'public', 'uploads', 'images');
         await fs.mkdir(uploadsDir, { recursive: true });
-        
-        const buffer = await file.arrayBuffer();
-        const filename = `${Date.now()}-${file.name}`;
-        const filePath = path.join(uploadsDir, filename);
-        await fs.writeFile(filePath, Buffer.from(buffer));
-
-        // Create geo_tag from latitude and longitude
-        const geoTag = `SRID=4326;POINT(${longitude} ${latitude})`;
-
-        // Save to database
         const client = await connectToDatabase();
-        const query = `
-            INSERT INTO images (work_request_id, description, link, geo_tag, created_at, updated_at, creator_id, creator_type)
-            VALUES ($1, $2, $3, ST_GeomFromText($4, 4326), NOW(), NOW(), $5, $6)
-            RETURNING *;
-        `;
-        const { rows } = await client.query(query, [
-            workRequestId,
-            description,
-            `/uploads/images/${filename}`,
-            geoTag,
-            creatorId || null,
-            creatorType || null
-        ]);
-
+        const uploadedImages = [];
+        for (let i = 0; i < files.length; i++) {
+            const file = files[i];
+            const description = descriptions[i];
+            const latitude = latitudes[i];
+            const longitude = longitudes[i];
+            if (!description || !latitude || !longitude) {
+                continue;
+            }
+            const buffer = await file.arrayBuffer();
+            const filename = `${Date.now()}-${file.name}`;
+            const filePath = path.join(uploadsDir, filename);
+            await fs.writeFile(filePath, Buffer.from(buffer));
+            const geoTag = `SRID=4326;POINT(${longitude} ${latitude})`;
+            const query = `
+                INSERT INTO images (work_request_id, description, link, geo_tag, created_at, updated_at, creator_id, creator_type)
+                VALUES ($1, $2, $3, ST_GeomFromText($4, 4326), NOW(), NOW(), $5, $6)
+                RETURNING *;
+            `;
+            const { rows } = await client.query(query, [
+                workRequestId,
+                description,
+                `/uploads/images/${filename}`,
+                geoTag,
+                creatorId || null,
+                creatorType || null
+            ]);
+            uploadedImages.push(rows[0]);
+        }
         return NextResponse.json({
-            message: 'Image uploaded successfully',
-            image: rows[0]
+            message: 'Image(s) uploaded successfully',
+            images: uploadedImages
         }, { status: 201 });
-
     } catch (error) {
         console.error('File upload error:', error);
-        return NextResponse.json({ error: 'Failed to upload file' }, { status: 500 });
+        return NextResponse.json({ error: 'Failed to upload file(s)' }, { status: 500 });
     }
 }
 

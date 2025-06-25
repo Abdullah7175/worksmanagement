@@ -1,7 +1,7 @@
 "use client" // Add this directive at the top
 
 // import { RequestForm } from '@/components/RequestForm';
-import { RequestForm } from '@/app/dashboard/requests/add/RequestForm';
+import { RequestForm } from '@/app/agent/requests/add/RequestForm';
 import { Button } from '@/components/ui/button';
 import { useRouter } from 'next/navigation';
 

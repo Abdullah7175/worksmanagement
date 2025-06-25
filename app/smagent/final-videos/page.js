@@ -128,12 +128,12 @@ export default function FinalVideosPage() {
                       Download
                     </button>
                   </a>
-                  <button 
+                  {/* <button 
                     onClick={() => handleDelete(video.id)}
                     className="px-3 py-2 bg-red-600 text-white text-sm rounded hover:bg-red-700 transition-colors flex items-center justify-center"
                   >
                     <Trash2 className="w-4 h-4" />
-                  </button>
+                  </button> */}
                 </div>
               </div>
             </Card>

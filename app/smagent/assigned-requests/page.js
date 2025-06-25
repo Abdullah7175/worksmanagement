@@ -104,13 +104,23 @@ export default function AssignedRequestsPage() {
               <div className="mt-auto pt-4 border-t border-gray-100">
                 <div className="flex gap-2">
                   <Link href={`/smagent/images/add?requestId=${req.id}`} className="flex-1">
-                    <button className="w-full px-3 py-2 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 transition-colors flex items-center justify-center gap-2">
+                    <button className="w-full px-3 py-2 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 transition-colors flex items-center justify-center gap-2" 
+                      disabled={req.status_id === 3 && !(
+                        (session?.user?.userType === 'user' && (session?.user?.role === 1 || session?.user?.role === 2)) ||
+                        (session?.user?.userType === 'socialmediaperson' && session?.user?.role === 'editor')
+                      )}
+                    >
                       <ImageIcon className="w-4 h-4" />
                       Add Image
                     </button>
                   </Link>
                   <Link href={`/smagent/videos/add?requestId=${req.id}`} className="flex-1">
-                    <button className="w-full px-3 py-2 bg-green-600 text-white text-sm rounded hover:bg-green-700 transition-colors flex items-center justify-center gap-2">
+                    <button className="w-full px-3 py-2 bg-green-600 text-white text-sm rounded hover:bg-green-700 transition-colors flex items-center justify-center gap-2" 
+                      disabled={req.status_id === 3 && !(
+                        (session?.user?.userType === 'user' && (session?.user?.role === 1 || session?.user?.role === 2)) ||
+                        (session?.user?.userType === 'socialmediaperson' && session?.user?.role === 'editor')
+                      )}
+                    >
                       <Video className="w-4 h-4" />
                       Add Video
                     </button>

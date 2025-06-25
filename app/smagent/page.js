@@ -93,7 +93,7 @@ export default function SmAgentDashboard() {
   return (
     <div className="container mx-auto px-4 py-10">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold mb-2">Social Media Agent Dashboard</h1>
+        <h1 className="text-3xl font-bold mb-2">Media Cell Dashboard</h1>
         <p className="text-gray-600">
           Welcome, {session?.user?.name} ({getRoleDisplay(userRole)})
         </p>

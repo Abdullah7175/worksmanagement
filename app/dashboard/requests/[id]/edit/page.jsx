@@ -173,6 +173,11 @@ const EditRequestPage = () => {
                     longitude: requestData.longitude,
                     creator_id: requestData.creator_id,
                     creator_type: requestData.creator_type,
+                    nature_of_work: requestData.nature_of_work || '',
+                    budget_code: requestData.budget_code || '',
+                    file_type: requestData.file_type || '',
+                    executive_engineer_id: requestData.executive_engineer_id || '',
+                    contractor_id: requestData.contractor_id || '',
                 }}
                 onSubmit={handleSubmit}
                 isEditMode={true}

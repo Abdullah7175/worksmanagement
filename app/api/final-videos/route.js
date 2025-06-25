@@ -11,6 +11,8 @@ export async function GET(request) {
     const limit = parseInt(searchParams.get('limit') || '0', 10);
     const offset = (page - 1) * limit;
     const filter = searchParams.get('filter') || '';
+    const dateFrom = searchParams.get('date_from');
+    const dateTo = searchParams.get('date_to');
     const creatorId = searchParams.get('creator_id');
     const creatorType = searchParams.get('creator_type');
     const client = await connectToDatabase();
@@ -50,31 +52,55 @@ export async function GET(request) {
             `;
             const result = await client.query(query, [workRequestId]);
             return NextResponse.json(result.rows, { status: 200 });
-        } else if (limit > 0) {
-            // Paginated with optional filter
-            let countQuery = 'SELECT COUNT(*) FROM final_videos';
-            let dataQuery = `SELECT fv.*, wr.request_date, wr.address, ST_AsGeoJSON(fv.geo_tag) as geo_tag FROM final_videos fv JOIN work_requests wr ON fv.work_request_id = wr.id`;
-            let params = [];
-            if (filter) {
-                countQuery += ' WHERE description ILIKE $1 OR CAST(work_request_id AS TEXT) ILIKE $1';
-                dataQuery += ' WHERE fv.description ILIKE $1 OR CAST(fv.work_request_id AS TEXT) ILIKE $1';
-                params = [`%${filter}%`];
-            }
-            dataQuery += ' ORDER BY fv.created_at DESC LIMIT $2 OFFSET $3';
-            const countResult = filter ? await client.query(countQuery, params) : await client.query(countQuery);
-            const total = parseInt(countResult.rows[0].count, 10);
-            const dataParams = filter ? [...params, limit, offset] : [limit, offset];
-            const result = await client.query(dataQuery, dataParams);
-            return NextResponse.json({ data: result.rows, total }, { status: 200 });
         } else {
-            const query = `
-                SELECT fv.*, wr.request_date, wr.address, ST_AsGeoJSON(fv.geo_tag) as geo_tag
-                FROM final_videos fv
-                JOIN work_requests wr ON fv.work_request_id = wr.id
-                ORDER BY fv.created_at DESC
-            `;
-            const result = await client.query(query);
-            return NextResponse.json(result.rows, { status: 200 });
+            let countQuery = 'SELECT COUNT(*) FROM final_videos fv JOIN work_requests wr ON fv.work_request_id = wr.id';
+            let dataQuery = `SELECT fv.*, wr.request_date, wr.address, ST_AsGeoJSON(fv.geo_tag) as geo_tag FROM final_videos fv JOIN work_requests wr ON fv.work_request_id = wr.id`;
+            let whereClauses = [];
+            let params = [];
+            let paramIdx = 1;
+            if (creatorId && creatorType) {
+                whereClauses.push(`fv.creator_id = $${paramIdx} AND fv.creator_type = $${paramIdx + 1}`);
+                params.push(creatorId, creatorType);
+                paramIdx += 2;
+            }
+            if (workRequestId) {
+                whereClauses.push(`fv.work_request_id = $${paramIdx}`);
+                params.push(workRequestId);
+                paramIdx++;
+            }
+            if (filter) {
+                whereClauses.push(`(
+                    CAST(fv.id AS TEXT) ILIKE $${paramIdx} OR
+                    fv.description ILIKE $${paramIdx} OR
+                    wr.address ILIKE $${paramIdx} OR
+                    CAST(fv.work_request_id AS TEXT) ILIKE $${paramIdx}
+                )`);
+                params.push(`%${filter}%`);
+                paramIdx++;
+            }
+            if (dateFrom) {
+                whereClauses.push(`fv.created_at >= $${paramIdx}`);
+                params.push(dateFrom);
+                paramIdx++;
+            }
+            if (dateTo) {
+                whereClauses.push(`fv.created_at <= $${paramIdx}`);
+                params.push(dateTo);
+                paramIdx++;
+            }
+            if (whereClauses.length > 0) {
+                countQuery += ' WHERE ' + whereClauses.join(' AND ');
+                dataQuery += ' WHERE ' + whereClauses.join(' AND ');
+            }
+            dataQuery += ' ORDER BY fv.created_at DESC';
+            if (limit > 0) {
+                dataQuery += ` LIMIT $${paramIdx} OFFSET $${paramIdx + 1}`;
+                params.push(limit, offset);
+            }
+            const countResult = await client.query(countQuery, params.slice(0, params.length - (limit > 0 ? 2 : 0)));
+            const total = parseInt(countResult.rows[0].count, 10);
+            const result = await client.query(dataQuery, params);
+            return NextResponse.json({ data: result.rows, total }, { status: 200 });
         }
     } catch (error) {
         console.error('Error fetching data:', error);
@@ -108,7 +134,7 @@ export async function POST(req) {
         // Validate creator type (only social media agents can upload final videos)
         if (creatorType !== 'socialmedia') {
             return NextResponse.json({ 
-                error: 'Only social media agents can upload final videos' 
+                error: 'Only Media Cell agents can upload final videos' 
             }, { status: 403 });
         }
 

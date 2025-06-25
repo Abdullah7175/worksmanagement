@@ -66,7 +66,7 @@ export default function AddVideoPage() {
     const fileInput = document.createElement('input');
     fileInput.type = 'file';
     fileInput.accept = 'video/*';
-    fileInput.multiple = true;
+    fileInput.multiple = true;  
     
     fileInput.onchange = (e) => {
       const files = Array.from(e.target.files);
@@ -366,7 +366,7 @@ export default function AddVideoPage() {
               </div>
               <div>
                 <span className="text-gray-600">Creator Type:</span>
-                <span className="ml-2 font-medium">socialmedia</span>
+                <span className="ml-2 font-medium">media_cell</span>
               </div>
             </div>
           </div>

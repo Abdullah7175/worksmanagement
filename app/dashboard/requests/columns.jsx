@@ -161,7 +161,7 @@ export const columns = [
             <Button
               variant="success"
               size="sm"
-              onClick={() => window.open(`/dashboard/complaints/performa/${requestId}`, '_blank')}
+              onClick={() => window.open(`/dashboard/requests/performa/${requestId}`, '_blank')}
             >
               Generate Performa
             </Button>

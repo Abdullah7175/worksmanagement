@@ -25,6 +25,8 @@ export async function GET(request) {
     const limit = parseInt(searchParams.get('limit') || '20', 10);
     const offset = (page - 1) * limit;
     const filter = searchParams.get('filter') || '';
+    const dateFrom = searchParams.get('date_from');
+    const dateTo = searchParams.get('date_to');
     let client;
     try {
         client = await connectToDatabase();
@@ -36,20 +38,36 @@ export async function GET(request) {
             }
             return NextResponse.json(result.rows[0], { status: 200 });
         } else {
-            // Paginated with optional filter
             let countQuery = 'SELECT COUNT(*) FROM socialmediaperson';
             let dataQuery = 'SELECT * FROM socialmediaperson';
             let params = [];
+            let whereClauses = [];
             if (filter) {
-                countQuery += ' WHERE name ILIKE $1 OR email ILIKE $1 OR contact_number ILIKE $1';
-                dataQuery += ' WHERE name ILIKE $1 OR email ILIKE $1 OR contact_number ILIKE $1';
-                dataQuery += ' ORDER BY id DESC LIMIT $2 OFFSET $3';
-                params = [`%${filter}%`, limit, offset];
-            } else {
-                dataQuery += ' ORDER BY id DESC LIMIT $1 OFFSET $2';
-                params = [limit, offset];
+                whereClauses.push('(' +
+                    'CAST(id AS TEXT) ILIKE $' + (params.length + 1) + ' OR ' +
+                    'name ILIKE $' + (params.length + 1) + ' OR ' +
+                    'email ILIKE $' + (params.length + 1) + ' OR ' +
+                    'contact_number ILIKE $' + (params.length + 1) + ' OR ' +
+                    'address ILIKE $' + (params.length + 1) + ' OR ' +
+                    'CAST(role AS TEXT) ILIKE $' + (params.length + 1) +
+                ')');
+                params.push(`%${filter}%`);
             }
-            const countResult = filter ? await client.query(countQuery, [`%${filter}%`]) : await client.query(countQuery);
+            if (dateFrom) {
+                whereClauses.push('created_at >= $' + (params.length + 1));
+                params.push(dateFrom);
+            }
+            if (dateTo) {
+                whereClauses.push('created_at <= $' + (params.length + 1));
+                params.push(dateTo);
+            }
+            if (whereClauses.length > 0) {
+                countQuery += ' WHERE ' + whereClauses.join(' AND ');
+                dataQuery += ' WHERE ' + whereClauses.join(' AND ');
+            }
+            dataQuery += ' ORDER BY id DESC LIMIT $' + (params.length + 1) + ' OFFSET $' + (params.length + 2);
+            params.push(limit, offset);
+            const countResult = await client.query(countQuery, params.slice(0, -2));
             const total = parseInt(countResult.rows[0].count, 10);
             const result = await client.query(dataQuery, params);
             return NextResponse.json({ data: result.rows, total }, { status: 200 });

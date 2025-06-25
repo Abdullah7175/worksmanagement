@@ -57,6 +57,8 @@ export async function GET(request) {
     const limit = parseInt(searchParams.get('limit') || '0', 10);
     const offset = (page - 1) * limit;
     const filter = searchParams.get('filter') || '';
+    const dateFrom = searchParams.get('date_from');
+    const dateTo = searchParams.get('date_to');
     const client = await connectToDatabase();
     try {
         if (id) {
@@ -66,39 +68,50 @@ export async function GET(request) {
                 return NextResponse.json({ error: 'User not found' }, { status: 404 });
             }
             return NextResponse.json(result.rows[0], { status: 200 });
-        } else if (limit > 0) {
-            // Paginated with optional filter
+        } else {
             let countQuery = 'SELECT COUNT(*) FROM users';
-            let dataQuery = 'SELECT id, name, email, contact_number, role, image FROM users';
+            let dataQuery = 'SELECT id, name, email, contact_number, role, image, created_date FROM users';
+            let whereClauses = [];
             let params = [];
+            let paramIdx = 1;
             if (filter) {
-                countQuery += ' WHERE name ILIKE $1 OR email ILIKE $1';
-                dataQuery += ' WHERE name ILIKE $1 OR email ILIKE $1';
-                dataQuery += ' ORDER BY created_date DESC LIMIT $2 OFFSET $3';
-                params = [`%${filter}%`, limit, offset];
-            } else if (role) {
-                countQuery += ' WHERE role = $1';
-                dataQuery += ' WHERE role = $1';
-                dataQuery += ' ORDER BY created_date DESC LIMIT $2 OFFSET $3';
-                params = [role, limit, offset];
-            } else {
-                dataQuery += ' ORDER BY created_date DESC LIMIT $1 OFFSET $2';
-                params = [limit, offset];
+                whereClauses.push(`(
+                    CAST(id AS TEXT) ILIKE $${paramIdx} OR
+                    name ILIKE $${paramIdx} OR
+                    email ILIKE $${paramIdx} OR
+                    contact_number ILIKE $${paramIdx}
+                )`);
+                params.push(`%${filter}%`);
+                paramIdx++;
             }
-            const countResult = params.length > 0 ? await client.query(countQuery, params.slice(0, -2)) : await client.query(countQuery);
+            if (role) {
+                whereClauses.push(`role = $${paramIdx}`);
+                params.push(role);
+                paramIdx++;
+            }
+            if (dateFrom) {
+                whereClauses.push(`created_date >= $${paramIdx}`);
+                params.push(dateFrom);
+                paramIdx++;
+            }
+            if (dateTo) {
+                whereClauses.push(`created_date <= $${paramIdx}`);
+                params.push(dateTo);
+                paramIdx++;
+            }
+            if (whereClauses.length > 0) {
+                countQuery += ' WHERE ' + whereClauses.join(' AND ');
+                dataQuery += ' WHERE ' + whereClauses.join(' AND ');
+            }
+            dataQuery += ' ORDER BY created_date DESC';
+            if (limit > 0) {
+                dataQuery += ` LIMIT $${paramIdx} OFFSET $${paramIdx + 1}`;
+                params.push(limit, offset);
+            }
+            const countResult = await client.query(countQuery, params.slice(0, params.length - (limit > 0 ? 2 : 0)));
             const total = parseInt(countResult.rows[0].count, 10);
             const result = await client.query(dataQuery, params);
             return NextResponse.json({ data: result.rows, total }, { status: 200 });
-        } else {
-            let query = 'SELECT id, name, email, contact_number, role, image FROM users';
-            let params = [];
-            if (role) {
-                query += ' WHERE role = $1';
-                params.push(role);
-            }
-            query += ' ORDER BY created_date DESC';
-            const result = await client.query(query, params);
-            return NextResponse.json(result.rows, { status: 200 });
         }
     } catch (error) {
         console.error('Error fetching data:', error);

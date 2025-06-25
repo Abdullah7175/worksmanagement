@@ -13,6 +13,7 @@ const Select = dynamic(() => import('react-select'), { ssr: false });
 const validationSchema = Yup.object({
     town_id: Yup.string().required('Town is required'),
     subtown_id: Yup.string().nullable(),
+    subtown_ids: Yup.array().of(Yup.number()),
     complaint_type_id: Yup.string().required('Complaint type is required'),
     complaint_subtype_id: Yup.string().nullable(),
     contact_number: Yup.string()
@@ -22,6 +23,8 @@ const validationSchema = Yup.object({
     description: Yup.string().required('Description is required'),
     latitude: Yup.number().nullable(),
     longitude: Yup.number().nullable(),
+    budget_code: Yup.string().required('Budget code is required'),
+    file_type: Yup.string().oneOf(['SPI', 'ADP']).required('File type is required'),
 });
 
 export const RequestForm = ({ isPublic = false, initialValues, onSubmit, isEditMode = false }) => {
@@ -39,9 +42,10 @@ export const RequestForm = ({ isPublic = false, initialValues, onSubmit, isEditM
     const [locationLoading, setLocationLoading] = useState(false);
 
     const formik = useFormik({
-        initialValues: {
+        initialValues: initialValues || {
             town_id: '',
             subtown_id: '',
+            subtown_ids: [],
             complaint_type_id: '',
             complaint_subtype_id: '',
             contact_number: '',
@@ -49,9 +53,14 @@ export const RequestForm = ({ isPublic = false, initialValues, onSubmit, isEditM
             description: '',
             latitude: null,
             longitude: null,
+            budget_code: '',
+            file_type: '',
             applicant_id: session?.user?.id || null,
         },
         validationSchema,
+        validateOnChange: true,
+        validateOnBlur: true,
+        enableReinitialize: true,
         onSubmit: async (values) => {
             if (onSubmit) {
                 await onSubmit(values);
@@ -371,6 +380,56 @@ export const RequestForm = ({ isPublic = false, initialValues, onSubmit, isEditM
                                 {formik.errors.description && formik.touched.description && (
                                     <p className="mt-1 text-sm text-red-600">{formik.errors.description}</p>
                                 )}
+                            </div>
+
+                            <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div>
+                                    <label htmlFor="budget_code" className="block text-sm font-medium text-gray-700 mb-1">Budget Code *</label>
+                                    <input
+                                        id="budget_code"
+                                        name="budget_code"
+                                        type="text"
+                                        onChange={formik.handleChange}
+                                        value={formik.values.budget_code}
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm"
+                                    />
+                                    {formik.errors.budget_code && formik.touched.budget_code && (
+                                        <p className="mt-1 text-sm text-red-600">{formik.errors.budget_code}</p>
+                                    )}
+                                </div>
+                                <div>
+                                    <label htmlFor="file_type" className="block text-sm font-medium text-gray-700 mb-1">File Type *</label>
+                                    <select
+                                        id="file_type"
+                                        name="file_type"
+                                        onChange={formik.handleChange}
+                                        value={formik.values.file_type}
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm"
+                                    >
+                                        <option value="">Select file type...</option>
+                                        <option value="SPI">Single Page Info (SPI)</option>
+                                        <option value="ADP">Annual Development (ADP)</option>
+                                    </select>
+                                    {formik.errors.file_type && formik.touched.file_type && (
+                                        <p className="mt-1 text-sm text-red-600">{formik.errors.file_type}</p>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Additional Subtowns */}
+                            <div>
+                                <label htmlFor="subtown_ids" className="block text-sm font-medium text-gray-700 mb-1">Additional Subtowns (Multi-select)</label>
+                                <Select
+                                    isMulti
+                                    id="subtown_ids"
+                                    name="subtown_ids"
+                                    options={subtownOptions}
+                                    value={subtownOptions.filter(opt => formik.values.subtown_ids.includes(opt.value))}
+                                    onChange={selectedOptions => formik.setFieldValue('subtown_ids', selectedOptions ? selectedOptions.map(opt => opt.value) : [])}
+                                    className="basic-select"
+                                    classNamePrefix="select"
+                                    isDisabled={!selectedTown}
+                                />
                             </div>
                         </div>
 

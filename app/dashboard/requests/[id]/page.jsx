@@ -189,7 +189,7 @@ const RequestDetailPage = () => {
                         </div>
                         
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">Social Media Agents</label>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">Media Cell Agents</label>
                             <Select
                                 isMulti
                                 options={smAgentOptions}
@@ -214,6 +214,18 @@ const RequestDetailPage = () => {
                         </Button>
                     </div>
                 </div>
+
+                {/* Performa Button - only if status is Completed */}
+                {request.status_name === 'Completed' && (
+                    <div className="mt-8 flex justify-end">
+                        <Button
+                            onClick={() => router.push(`/dashboard/requests/performa/${request.id}`)}
+                            className="bg-green-600 hover:bg-green-700 text-white"
+                        >
+                            Generate/View Performa
+                        </Button>
+                    </div>
+                )}
             </div>
         </div>
     );

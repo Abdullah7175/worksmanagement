@@ -17,7 +17,7 @@ export default function Page() {
         const response = await fetch(`/api/videos?creator_id=${session.user.id}&creator_type=agent`, { method: 'GET' });
         if (response.ok) {
           const data = await response.json();
-          setVideos(data);
+          setVideos(data.data || data || []);
         } else {
           setError('Failed to fetch videos');
         }

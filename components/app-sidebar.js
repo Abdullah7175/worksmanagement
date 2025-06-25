@@ -228,6 +228,15 @@ export function AppSidebar() {
                                                     </Link>
                                                 </SidebarMenuSubItem>
                                                 <SidebarMenuSubItem
+                                                    className={`py-2 text-base ml-2 text-gray-500 underline ${pathname === "/dashboard/final-videos" ? "font-bold text-blue-950" : ""
+                                                        }`}
+                                                >
+                                                    <Link href="/dashboard/final-videos">
+                                                        <span>final videos</span>
+                                                    </Link>
+                                                </SidebarMenuSubItem>
+                                                
+                                                <SidebarMenuSubItem
                                                     className={`py-2 text-base ml-2 text-gray-500 underline ${pathname === "/dashboard/images" ? "font-bold text-blue-950" : ""
                                                         }`}
                                                 >
@@ -274,7 +283,7 @@ export function AppSidebar() {
                                                         }`}
                                                 >
                                                     <Link href="/dashboard/socialmediaagent">
-                                                        <span>Social Media Agents</span>
+                                                        <span>Media Cell Agents</span>
                                                     </Link>
                                                 </SidebarMenuSubItem>
                                             </SidebarMenuSub>

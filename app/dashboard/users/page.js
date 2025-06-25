@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { columns } from "./columns";
 import { DataTable } from "./data-table";
+import { Input } from '@/components/ui/input';
 
 export default function Page() {
   const [users, setUsers] = useState([]);
@@ -10,7 +11,9 @@ export default function Page() {
   const [error, setError] = useState(null);
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
-  const [filter, setFilter] = useState("");
+  const [search, setSearch] = useState("");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
   const limit = 20;
 
   useEffect(() => {
@@ -20,7 +23,9 @@ export default function Page() {
         setError(null);
         try {
           let url = `/api/users?page=${page}&limit=${limit}`;
-          if (filter) url += `&filter=${encodeURIComponent(filter)}`;
+          if (search) url += `&filter=${encodeURIComponent(search)}`;
+          if (dateFrom) url += `&date_from=${dateFrom}`;
+          if (dateTo) url += `&date_to=${dateTo}`;
           
           const response = await fetch(url);
           if (response.ok) {
@@ -46,7 +51,7 @@ export default function Page() {
       fetchUsers();
     }, 300);
     return () => clearTimeout(timeout);
-  }, [page, filter]);
+  }, [page, search, dateFrom, dateTo]);
 
   const totalPages = Math.ceil(total / limit);
 
@@ -65,12 +70,22 @@ export default function Page() {
     <div className="container mx-auto px-4 py-10">
       <DataTable columns={columns} data={users}>
         <h1 className="text-3xl font-semibold">Users</h1>
-        <input
-          placeholder="Filter users..."
-          value={filter}
-          onChange={e => { setPage(1); setFilter(e.target.value); }}
-          className="max-w-sm bg-gray-100 shadow-sm border px-2 py-1 rounded ml-4"
-        />
+        <div className="flex flex-wrap gap-4 mb-4 items-end">
+          <Input
+            placeholder="Search by ID, name, email, contact..."
+            value={search}
+            onChange={e => { setPage(1); setSearch(e.target.value); }}
+            className="w-64"
+          />
+          <div>
+            <label className="block text-xs text-gray-500 mb-1">From</label>
+            <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} className="border rounded px-2 py-1" />
+          </div>
+          <div>
+            <label className="block text-xs text-gray-500 mb-1">To</label>
+            <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} className="border rounded px-2 py-1" />
+          </div>
+        </div>
       </DataTable>
       
       {!loading && !error && (

@@ -17,7 +17,7 @@ export default function Page() {
         const response = await fetch(`/api/images?creator_id=${session.user.id}&creator_type=agent`, { method: 'GET' });
         if (response.ok) {
           const data = await response.json();
-          setImages(data);
+          setImages(data.data || data || []);
         } else {
           setError('Failed to fetch images');
         }

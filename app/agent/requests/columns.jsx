@@ -193,24 +193,33 @@ export function getAgentRequestColumns({ onAddImage, onAddVideo }) {
     },
     {
       id: "actions",
-      cell: ({ row }) => (
-        <div className="flex space-x-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => onAddImage(row.original.id)}
-          >
-            Add Image
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => onAddVideo(row.original.id)}
-          >
-            Add Video
-          </Button>
-        </div>
-      ),
+      cell: ({ row }) => {
+        const status = row.original.status_name;
+        const isCompleted = status === 'Completed';
+        // For completed requests, only userType user with role 1 or 2, or socialmediaperson with role editor can upload
+        // But agents should never be able to upload for completed requests
+        const canUpload = !isCompleted;
+        return (
+          <div className="flex space-x-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => onAddImage(row.original.id)}
+              disabled={!canUpload}
+            >
+              Add Image
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => onAddVideo(row.original.id)}
+              disabled={!canUpload}
+            >
+              Add Video
+            </Button>
+          </div>
+        );
+      },
     },
   ]
 }

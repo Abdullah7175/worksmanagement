@@ -58,58 +58,59 @@ import path from 'path';
 export async function POST(req) {
     try {
         const formData = await req.formData();
-        
         const workRequestId = formData.get('workRequestId');
-        const description = formData.get('description');
-        const latitude = formData.get('latitude');
-        const longitude = formData.get('longitude');
-        const file = formData.get('vid');
         const creatorId = formData.get('creator_id');
         const creatorType = formData.get('creator_type');
+        const files = formData.getAll('vid');
+        const descriptions = formData.getAll('description');
+        const latitudes = formData.getAll('latitude');
+        const longitudes = formData.getAll('longitude');
 
-        if (!workRequestId || !description || !file) {
-            return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
+        if (!workRequestId || files.length === 0) {
+            return NextResponse.json({ error: 'Work Request ID and at least one video are required' }, { status: 400 });
+        }
+        if (files.length !== descriptions.length || files.length !== latitudes.length || files.length !== longitudes.length) {
+            return NextResponse.json({ error: 'Each video must have a description, latitude, and longitude' }, { status: 400 });
         }
 
-        if (!latitude || !longitude) {
-            return NextResponse.json({ error: 'Location coordinates are required' }, { status: 400 });
-        }
-
-        // Save the file
         const uploadsDir = path.join(process.cwd(), 'public', 'uploads', 'videos');
         await fs.mkdir(uploadsDir, { recursive: true });
-        
-        const buffer = await file.arrayBuffer();
-        const filename = `${Date.now()}-${file.name}`;
-        const filePath = path.join(uploadsDir, filename);
-        await fs.writeFile(filePath, Buffer.from(buffer));
-
-        // Create geo_tag from latitude and longitude
-        const geoTag = `SRID=4326;POINT(${longitude} ${latitude})`;
-
-        // Save to database
         const client = await connectToDatabase();
-        const query = `
-            INSERT INTO videos (work_request_id, description, link, geo_tag, created_at, updated_at, creator_id, creator_type)
-            VALUES ($1, $2, $3, ST_GeomFromText($4, 4326), NOW(), NOW(), $5, $6)
-            RETURNING *;
-        `;
-        const { rows } = await client.query(query, [
-            workRequestId,
-            description,
-            `/uploads/videos/${filename}`,
-            geoTag,
-            creatorId || null,
-            creatorType || null
-        ]);
-
+        const uploadedVideos = [];
+        for (let i = 0; i < files.length; i++) {
+            const file = files[i];
+            const description = descriptions[i];
+            const latitude = latitudes[i];
+            const longitude = longitudes[i];
+            if (!description || !latitude || !longitude) {
+                continue;
+            }
+            const buffer = await file.arrayBuffer();
+            const filename = `${Date.now()}-${file.name}`;
+            const filePath = path.join(uploadsDir, filename);
+            await fs.writeFile(filePath, Buffer.from(buffer));
+            const geoTag = `SRID=4326;POINT(${longitude} ${latitude})`;
+            const query = `
+                INSERT INTO videos (work_request_id, description, link, geo_tag, created_at, updated_at, creator_id, creator_type)
+                VALUES ($1, $2, $3, ST_GeomFromText($4, 4326), NOW(), NOW(), $5, $6)
+                RETURNING *;
+            `;
+            const { rows } = await client.query(query, [
+                workRequestId,
+                description,
+                `/uploads/videos/${filename}`,
+                geoTag,
+                creatorId || null,
+                creatorType || null
+            ]);
+            uploadedVideos.push(rows[0]);
+        }
         return NextResponse.json({
-            message: 'Video uploaded successfully',
-            video: rows[0]
+            message: 'Video(s) uploaded successfully',
+            videos: uploadedVideos
         }, { status: 201 });
-
     } catch (error) {
         console.error('File upload error:', error);
-        return NextResponse.json({ error: 'Failed to upload file' }, { status: 500 });
+        return NextResponse.json({ error: 'Failed to upload file(s)' }, { status: 500 });
     }
 }

@@ -22,12 +22,14 @@ const validationSchema = Yup.object({
 const VideoForm = ({ workRequestId: propWorkRequestId, onClose }) => {
     const { toast } = useToast();
     const [isSuccess, setIsSuccess] = useState(false);
-    const [preview, setPreview] = useState(null);
-    const [size, setSize] = useState(null);
     const [workRequests, setWorkRequests] = useState([]);
     const [loadingWorkRequests, setLoadingWorkRequests] = useState(true);
+    const [fileInputs, setFileInputs] = useState([]); // [{file, description, latitude, longitude}]
     const router = useRouter();
     const { data: session } = useSession();
+    const [workRequestId, setWorkRequestId] = useState(propWorkRequestId || '');
+    const [workRequestStatus, setWorkRequestStatus] = useState(null);
+    const [isUploadAllowed, setIsUploadAllowed] = useState(true);
 
     useEffect(() => {
         const fetchWorkRequests = async () => {
@@ -38,7 +40,6 @@ const VideoForm = ({ workRequestId: propWorkRequestId, onClose }) => {
                     setWorkRequests(data.map(request => ({
                         value: Number(request.id),
                         label: `${request.id}`
-                        // - ${request.address} (${new Date(request.request_date).toLocaleDateString()})
                     })));
                 }
             } catch (error) {
@@ -52,76 +53,108 @@ const VideoForm = ({ workRequestId: propWorkRequestId, onClose }) => {
                 setLoadingWorkRequests(false);
             }
         };
-
         fetchWorkRequests();
     }, [toast]);
 
-    const formik = useFormik({
-        initialValues: {
-            workRequestId: propWorkRequestId || '',
-            description: '',
-            vid: null, // always reset to null for new uploads
-            latitude: '',
-            longitude: '',
-            geo_tag: '',
-        },
-        validationSchema,
-        enableReinitialize: true,
-        onSubmit: async (values) => {
-            // If both latitude and longitude are present, construct geo_tag
-            let geoTag = values.geo_tag;
-            if (values.latitude && values.longitude) {
-                geoTag = `POINT(${values.longitude} ${values.latitude})`;
-            }
-            const formData = new FormData();
-            formData.append('workRequestId', values.workRequestId);
-            formData.append('description', values.description);
-            formData.append('geo_tag', geoTag || '');
-
-            if (!values.vid) {
-                formik.setFieldTouched('vid', true, false);
-                return; // prevent submission
-            }
-            formData.append('vid', values.vid);
-
-            // Add agent identity
-            if (session?.user?.id) {
-                formData.append('creator_id', session.user.id);
-                formData.append('creator_type', 'agent');
-            }
-
-            try {
-                const response = await fetch('/api/videos/upload', {
-                    method: 'POST',
-                    body: formData,
-                });
-
-                if (response.ok) {
-                    const data = await response.json();
-                    toast({
-                        title: 'Video uploaded successfully',
-                        description: `Video added to work request ${values.workRequestId}`,
-                        variant: 'success',
-                    });
-                    setIsSuccess(true);
-                } else {
-                    const errorData = await response.json();
-                    toast({
-                        title: 'Failed to upload video',
-                        description: errorData.error || 'Please try again.',
-                        variant: 'destructive',
-                    });
+    // Fetch status when workRequestId changes
+    useEffect(() => {
+        if (!workRequestId) return;
+        fetch(`/api/requests?id=${workRequestId}`)
+            .then(res => res.ok ? res.json() : null)
+            .then(data => {
+                if (data && data.status_name) {
+                    setWorkRequestStatus(data.status_name);
+                    // Check permission
+                    const userType = session?.user?.userType;
+                    const role = Number(session?.user?.role);
+                    if (data.status_name === 'Completed') {
+                        if (
+                            (userType === 'user' && (role === 1 || role === 2)) ||
+                            (userType === 'socialmediaperson' && session?.user?.role === 'editor')
+                        ) {
+                            setIsUploadAllowed(true);
+                        } else {
+                            setIsUploadAllowed(false);
+                        }
+                    } else {
+                        setIsUploadAllowed(true);
+                    }
                 }
-            } catch (error) {
-                console.error('Error uploading video:', error);
+            });
+    }, [workRequestId, session]);
+
+    const handleFileChange = (e) => {
+        const files = Array.from(e.target.files);
+        setFileInputs(files.map(file => ({
+            file,
+            description: '',
+            latitude: '',
+            longitude: ''
+        })));
+    };
+
+    const handleInputChange = (idx, field, value) => {
+        setFileInputs(prev => prev.map((item, i) => i === idx ? { ...item, [field]: value } : item));
+    };
+
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        if (!workRequestId) {
+            toast({ title: 'Work Request is required', variant: 'destructive' });
+            return;
+        }
+        if (fileInputs.length === 0) {
+            toast({ title: 'Please select at least one video', variant: 'destructive' });
+            return;
+        }
+        for (let i = 0; i < fileInputs.length; i++) {
+            const { description, latitude, longitude } = fileInputs[i];
+            if (!description || !latitude || !longitude) {
+                toast({ title: `All fields are required for video #${i + 1}`, variant: 'destructive' });
+                return;
+            }
+        }
+        const formData = new FormData();
+        formData.append('workRequestId', workRequestId);
+        fileInputs.forEach((item, idx) => {
+            formData.append('vid', item.file);
+            formData.append('description', item.description);
+            formData.append('latitude', item.latitude);
+            formData.append('longitude', item.longitude);
+        });
+        if (session?.user?.id) {
+            formData.append('creator_id', session.user.id);
+            formData.append('creator_type', 'agent');
+        }
+        try {
+            const response = await fetch('/api/videos/upload', {
+                method: 'POST',
+                body: formData,
+            });
+            if (response.ok) {
                 toast({
-                    title: 'An error occurred',
-                    description: 'Unable to upload video.',
+                    title: 'Video(s) uploaded successfully',
+                    description: `Videos added to work request ${workRequestId}`,
+                    variant: 'success',
+                });
+                setIsSuccess(true);
+            } else {
+                const errorData = await response.json();
+                toast({
+                    title: 'Failed to upload video(s)',
+                    description: errorData.error || 'Please try again.',
                     variant: 'destructive',
                 });
             }
-        },        
-    });
+        } catch (error) {
+            console.error('Error uploading video:', error);
+            toast({
+                title: 'An error occurred',
+                description: 'Unable to upload video(s).',
+                variant: 'destructive',
+            });
+        }
+    };
 
     useEffect(() => {
         if (isSuccess) {
@@ -133,171 +166,136 @@ const VideoForm = ({ workRequestId: propWorkRequestId, onClose }) => {
         }
     }, [isSuccess, router, onClose]);
 
-
-    const handleFileChange = (e) => {
-        const file = e.target.files[0];
-        if (file) {
-            formik.setFieldValue('vid', file);
-            setPreview(file);
-            
-            const sizeInMB = file.size / (1024 * 1024);
-            const formattedSize = Math.round(sizeInMB * 100) / 100;
-            setSize(formattedSize);
-        }
-    };
-
     return (
         <div className='container'>
-            <form onSubmit={formik.handleSubmit} className="max-w-7xl mx-auto p-6 bg-white shadow-sm rounded-lg space-y-6 border">
-                <div className="grid sm:grid-cols-1 md:grid-cols-2 gap-8">
-                    {!propWorkRequestId && (
-                        <div>
-                            <label htmlFor="workRequestId" className="block text-gray-700 text-sm font-medium">
-                                Work Request
-                            </label>
-                            <select
-                                id="workRequestId"
-                                name="workRequestId"
-                                value={formik.values.workRequestId}
-                                onChange={e => formik.setFieldValue('workRequestId', Number(e.target.value))}
-                                className="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-md"
-                            >
-                                <option value="">Select a work request...</option>
-                                {workRequests.map((req) => (
-                                    <option key={req.value} value={req.value}>
-                                        {req.label}
-                                    </option>
-                                ))}
-                            </select>
-                            {formik.errors.workRequestId && formik.touched.workRequestId && (
-                                <div className="text-red-600 text-sm mt-2">{formik.errors.workRequestId}</div>
-                            )}
-                        </div>
-                    )}
-                    {propWorkRequestId && (
-                        <input type="hidden" name="workRequestId" value={propWorkRequestId} />
-                    )}
-                    
-                    <div>
-                        <label htmlFor="description" className="block text-gray-700 text-sm font-medium">Description</label>
-                        <textarea
-                            id="description"
-                            name="description"
-                            onChange={formik.handleChange}
-                            value={formik.values.description}
-                            className="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                            rows="3"
-                        />
-                        {formik.errors.description && formik.touched.description && (
-                            <div className="text-red-600 text-sm mt-2">{formik.errors.description}</div>
+            <form onSubmit={handleSubmit} className="max-w-7xl mx-auto p-6 bg-white shadow-sm rounded-lg space-y-6 border">
+                {workRequestStatus === 'Completed' && !isUploadAllowed && (
+                    <div className="p-4 mb-4 bg-red-100 text-red-700 rounded">Uploads are disabled for completed requests. Only managers, admins, or Media Cell editors can upload.</div>
+                )}
+                <fieldset disabled={!isUploadAllowed} style={{ opacity: isUploadAllowed ? 1 : 0.6 }}>
+                    <div className="grid sm:grid-cols-1 md:grid-cols-2 gap-8">
+                        {!propWorkRequestId && (
+                            <div>
+                                <label htmlFor="workRequestId" className="block text-gray-700 text-sm font-medium">
+                                    Work Request
+                                </label>
+                                <select
+                                    id="workRequestId"
+                                    name="workRequestId"
+                                    value={workRequestId}
+                                    onChange={e => setWorkRequestId(Number(e.target.value))}
+                                    className="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-md"
+                                >
+                                    <option value="">Select a work request...</option>
+                                    {workRequests.map((req) => (
+                                        <option key={req.value} value={req.value}>
+                                            {req.label}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+                        )}
+                        {propWorkRequestId && (
+                            <input type="hidden" name="workRequestId" value={propWorkRequestId} />
                         )}
                     </div>
-                </div>
-
-                <div className="col-span-1 md:col-span-2">
-                <label htmlFor="geo_tag" className="block text-gray-700 text-sm font-medium">
-                    Location (Geo Tag)
-                </label>
-                <div className="mt-1 flex items-center gap-2">
-                    <Button
-                    type="button"
-                    variant="outline"
-                    className="flex items-center gap-2"
-                    onClick={() => {
-                        navigator.geolocation.getCurrentPosition(
-                        (position) => {
-                            const { latitude, longitude } = position.coords;
-                            formik.setFieldValue('latitude', latitude);
-                            formik.setFieldValue('longitude', longitude);
-                            formik.setFieldValue('geo_tag', `POINT(${longitude} ${latitude})`);
-                            toast({
-                            title: 'Location captured',
-                            description: `Lat: ${latitude}, Lng: ${longitude}`,
-                            variant: 'success',
-                            });
-                        },
-                        (error) => {
-                            toast({
-                            title: 'Geolocation error',
-                            description: error.message,
-                            variant: 'destructive',
-                            });
-                        }
-                        );
-                    }}
-                    >
-                    <MapPin className="w-4 h-4" /> Get Location
-                    </Button>
-                </div>
-                <div className="mt-2 grid grid-cols-2 gap-4">
                     <div>
-                        <label htmlFor="latitude" className="block text-xs text-gray-600">Latitude</label>
-                        <input
-                            id="latitude"
-                            name="latitude"
-                            type="number"
-                            step="any"
-                            value={formik.values.latitude}
-                            onChange={formik.handleChange}
-                            className="mt-1 block w-full px-2 py-1 border border-gray-300 rounded-md"
-                            placeholder="Enter latitude"
-                        />
-                    </div>
-                    <div>
-                        <label htmlFor="longitude" className="block text-xs text-gray-600">Longitude</label>
-                        <input
-                            id="longitude"
-                            name="longitude"
-                            type="number"
-                            step="any"
-                            value={formik.values.longitude}
-                            onChange={formik.handleChange}
-                            className="mt-1 block w-full px-2 py-1 border border-gray-300 rounded-md"
-                            placeholder="Enter longitude"
-                        />
-                    </div>
-                </div>
-                </div>
-                
-                <div>
-                    <label htmlFor="vid" className="block text-gray-700 text-sm font-medium">Upload Video</label>
-                    <div className="mt-1">
+                        <label htmlFor="vid" className="block text-gray-700 text-sm font-medium">Upload Videos</label>
                         <input
                             id="vid"
                             name="vid"
                             type="file"
                             accept="video/*"
+                            multiple
                             onChange={handleFileChange}
-                            className="hidden"
+                            className="mt-1"
                         />
-                        <label htmlFor="vid" className="cursor-pointer inline-block bg-gray-100 text-gray-500 border-3 font-semibold py-2 px-4 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                            Choose a video
-                        </label>
-                        {formik.values.vid && (
-                            <div className="mt-2 text-gray-700 text-sm">
-                                <span className="font-medium">Selected File:</span> {formik.values.vid.name}
-                                <div className="font-medium">Size: {size} MB</div>
-                            </div>
-                        )}
                     </div>
-                    {formik.errors.vid && formik.touched.vid && (
-                        <div className="text-red-600 text-sm mt-2">{formik.errors.vid}</div>
+                    {fileInputs.length > 0 && (
+                        <div className="space-y-6">
+                            {fileInputs.map((item, idx) => (
+                                <div key={idx} className="border rounded-md p-4 bg-gray-50">
+                                    <div className="font-medium mb-2">Video {idx + 1}: {item.file.name} ({Math.round(item.file.size / 1024)} KB)</div>
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                        <div>
+                                            <label className="block text-xs text-gray-600">Description</label>
+                                            <input
+                                                type="text"
+                                                value={item.description}
+                                                onChange={e => handleInputChange(idx, 'description', e.target.value)}
+                                                className="mt-1 block w-full px-2 py-1 border border-gray-300 rounded-md"
+                                                placeholder="Enter description"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs text-gray-600">Latitude</label>
+                                            <input
+                                                type="number"
+                                                step="any"
+                                                value={item.latitude}
+                                                onChange={e => handleInputChange(idx, 'latitude', e.target.value)}
+                                                className="mt-1 block w-full px-2 py-1 border border-gray-300 rounded-md"
+                                                placeholder="Latitude"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs text-gray-600">Longitude</label>
+                                            <input
+                                                type="number"
+                                                step="any"
+                                                value={item.longitude}
+                                                onChange={e => handleInputChange(idx, 'longitude', e.target.value)}
+                                                className="mt-1 block w-full px-2 py-1 border border-gray-300 rounded-md"
+                                                placeholder="Longitude"
+                                            />
+                                        </div>
+                                    </div>
+                                    <div className="mt-2 flex gap-2">
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            className="flex items-center gap-2"
+                                            onClick={() => {
+                                                if (!navigator.geolocation) {
+                                                    toast({ title: 'Geolocation not supported', variant: 'destructive' });
+                                                    return;
+                                                }
+                                                navigator.geolocation.getCurrentPosition(
+                                                    (position) => {
+                                                        handleInputChange(idx, 'latitude', position.coords.latitude);
+                                                        handleInputChange(idx, 'longitude', position.coords.longitude);
+                                                        toast({
+                                                            title: 'Location captured',
+                                                            description: `Lat: ${position.coords.latitude}, Lng: ${position.coords.longitude}`,
+                                                            variant: 'success',
+                                                        });
+                                                    },
+                                                    (error) => {
+                                                        toast({
+                                                            title: 'Geolocation error',
+                                                            description: error.message,
+                                                            variant: 'destructive',
+                                                        });
+                                                    }
+                                                );
+                                            }}
+                                        >
+                                            <MapPin className="w-4 h-4" /> Get Location
+                                        </Button>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
                     )}
-                </div>
-
+                </fieldset>
                 <div className='flex justify-end'>
                     <button
                         type="submit"
                         className="px-4 py-2 mt-4 bg-indigo-600 text-white font-semibold rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                     >
-                        Add Video
+                        Add Video(s)
                     </button>
                 </div>
-                {onClose && (
-                    <div className="mt-4 flex justify-end">
-                        <Button type="button" variant="outline" onClick={onClose}>Close</Button>
-                    </div>
-                )}
             </form>
         </div>
     );

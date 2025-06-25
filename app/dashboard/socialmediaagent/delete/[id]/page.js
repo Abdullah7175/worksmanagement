@@ -34,7 +34,7 @@ const DeleteSocialMediaPersonPage = () => {
   return (
     <div className="flex justify-center items-center">
       <div className="space-y-4 border container max-w-2xl p-10 shadow-md mt-20">
-        <h1 className="text-2xl">Are you sure you want to delete this socialagent?</h1>
+        <h1 className="text-2xl">Are you sure you want to delete this Media Agent?</h1>
         <p>This action cannot be undone.</p>
 
         {error && <div className="text-red-600">{error}</div>}
