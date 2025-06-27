@@ -1,14 +1,15 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import { Card } from "@/components/ui/card";
 import { Download, ArrowLeft, Search, Filter } from "lucide-react";
 import Link from "next/link";
 import { useToast } from "@/hooks/use-toast";
+import Image from "next/image";
 
 export default function DownloadImagesPage() {
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
   const { toast } = useToast();
   const [images, setImages] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -19,33 +20,7 @@ export default function DownloadImagesPage() {
   // Check if user has permission (Video Editor or Manager)
   const hasPermission = session?.user?.role === 4 || session?.user?.role === 5; // 4=Video Editor, 5=Manager
 
-  useEffect(() => {
-    if (session?.user?.id) {
-      fetchImages();
-    }
-  }, [session?.user?.id]);
-
-  useEffect(() => {
-    // Filter images based on search term and request ID
-    let filtered = images;
-    
-    if (searchTerm) {
-      filtered = filtered.filter(image => 
-        image.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        image.creator_name?.toLowerCase().includes(searchTerm.toLowerCase())
-      );
-    }
-    
-    if (filterRequestId) {
-      filtered = filtered.filter(image => 
-        image.work_request_id?.toString() === filterRequestId
-      );
-    }
-    
-    setFilteredImages(filtered);
-  }, [images, searchTerm, filterRequestId]);
-
-  const fetchImages = async () => {
+  const fetchImages = useCallback(async () => {
     try {
       setLoading(true);
       const response = await fetch("/api/images");
@@ -69,7 +44,58 @@ export default function DownloadImagesPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [toast]);
+
+  useEffect(() => {
+    if (session?.user?.id) {
+      fetchImages();
+    }
+  }, [session?.user?.id, fetchImages]);
+
+  useEffect(() => {
+    const filtered = images.filter((image) => {
+      const matchesSearch = searchTerm === "" || 
+        (image.description && image.description.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (image.creator_name && image.creator_name.toLowerCase().includes(searchTerm.toLowerCase()));
+      
+      const matchesRequestId = filterRequestId === "" || 
+        image.work_request_id.toString().includes(filterRequestId);
+      
+      return matchesSearch && matchesRequestId;
+    });
+    setFilteredImages(filtered);
+  }, [images, searchTerm, filterRequestId]);
+
+  // Show loading while session is loading
+  if (status === "loading") {
+    return (
+      <div className="container mx-auto px-4 py-10">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-2 text-gray-600">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show error if not authenticated
+  if (status === "unauthenticated") {
+    return (
+      <div className="container mx-auto px-4 py-10">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold text-red-600 mb-4">Authentication Required</h1>
+          <p className="text-gray-600 mb-4">
+            Please log in to access this page.
+          </p>
+          <Link href="/login">
+            <button className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">
+              Go to Login
+            </button>
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   const handleDownload = async (image) => {
     try {
@@ -231,14 +257,26 @@ export default function DownloadImagesPage() {
             {(Array.isArray(filteredImages) ? filteredImages : []).map((image) => (
               <div key={image.id} className="bg-white border rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow">
                 <div className="relative">
-                  <img
-                    src={image.link}
-                    alt={image.description || "Image"}
-                    className="w-full h-48 object-cover"
-                    onError={(e) => {
-                      e.target.src = "/placeholder-image.jpg";
-                    }}
-                  />
+                  {image.link ? (
+                    <Image
+                      src={image.link}
+                      alt={image.description || "Image"}
+                      width={400}
+                      height={128}
+                      className="w-full h-48 object-cover"
+                      unoptimized
+                      onError={(e) => {
+                        e.target.style.display = 'none';
+                        e.target.nextSibling.style.display = 'flex';
+                      }}
+                    />
+                  ) : null}
+                  <div 
+                    className="w-full h-48 bg-gray-200 flex items-center justify-center"
+                    style={{ display: image.link ? 'none' : 'flex' }}
+                  >
+                    <span className="text-gray-500">No image available</span>
+                  </div>
                   <button
                     onClick={() => handleDownload(image)}
                     className="absolute top-2 right-2 bg-blue-600 text-white p-2 rounded-full hover:bg-blue-700 transition-colors"

@@ -122,7 +122,7 @@ const EditRequestPage = () => {
                 <div className="bg-red-50 border border-red-200 rounded-md p-4">
                     <h2 className="text-lg font-semibold text-red-800">Access Denied</h2>
                     <p className="text-red-600 mt-2">
-                        You don't have permission to edit this request. Only the creator, managers, and admins can edit requests.
+                        You don&apos;t have permission to edit this request. Only the creator, managers, and admins can edit requests.
                     </p>
                     <div className="mt-4 p-4 bg-gray-100 rounded">
                         <h3 className="font-semibold">Debug Information:</h3>

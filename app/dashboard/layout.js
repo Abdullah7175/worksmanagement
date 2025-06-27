@@ -12,8 +12,8 @@ import { useSession } from "next-auth/react";
 
 export default function Layout({ children }) {
     const router = useRouter();
-    const { setUser } = useUserContext ? useUserContext() : { setUser: null };
-    const { data: session } = useSession ? useSession() : { data: null };
+    const { setUser } = useUserContext();
+    const { data: session } = useSession();
     const [notifications, setNotifications] = useState([]);
     const [showDropdown, setShowDropdown] = useState(false);
 

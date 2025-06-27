@@ -70,7 +70,7 @@ export default function AssignedRequestsPage() {
           <div className="text-gray-500">
             <Activity className="w-16 h-16 mx-auto mb-4 text-gray-300" />
             <h3 className="text-lg font-medium mb-2">No requests assigned</h3>
-            <p>You don't have any requests assigned to you yet.</p>
+            <p>You don&apos;t have any requests assigned to you yet.</p>
           </div>
         </Card>
       ) : (

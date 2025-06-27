@@ -83,7 +83,7 @@ export default function FinalVideosPage() {
           <div className="text-gray-500">
             <Video className="w-16 h-16 mx-auto mb-4 text-gray-300" />
             <h3 className="text-lg font-medium mb-2">No final videos yet</h3>
-            <p>You haven't created any final videos yet.</p>
+            <p>You haven&apos;t created any final videos yet.</p>
             <Link href="/smagent/final-videos/add">
               <button className="mt-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
                 Create Your First Final Video

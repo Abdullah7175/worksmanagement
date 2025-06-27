@@ -133,27 +133,24 @@ export const columns = [
   },
   {
     id: "actions",
-    cell: ({ row }) => {
-      const router = useRouter();
-      const { data: session } = useSession();
+    cell: ({ row, table }) => {
+      const { onEdit, onAssign, onGeneratePerforma, userRole } = table.options.meta || {};
       const status = row.original.status_name;
       const requestId = row.original.id;
-      const userRole = session?.user?.role;
-      // Only admin (1) and manager (2) can generate performa for completed requests
       const canGeneratePerforma = (status === 'Completed') && (userRole === 1 || userRole === 2);
       return (
         <div className="flex space-x-2">
           <Button
             variant="outline"
             size="sm"
-            onClick={() => window.open(`/dashboard/requests/${requestId}/edit`, '_blank')}
+            onClick={() => onEdit && onEdit(requestId)}
           >
             Edit
           </Button>
           <Button
             variant="outline"
             size="sm"
-            onClick={() => router.push(`/dashboard/requests/${requestId}`)}
+            onClick={() => onAssign && onAssign(requestId)}
           >
             Assign
           </Button>
@@ -161,13 +158,13 @@ export const columns = [
             <Button
               variant="success"
               size="sm"
-              onClick={() => window.open(`/dashboard/requests/performa/${requestId}`, '_blank')}
+              onClick={() => onGeneratePerforma && onGeneratePerforma(requestId)}
             >
               Generate Performa
             </Button>
           )}
         </div>
-      )
+      );
     },
   }
 ]

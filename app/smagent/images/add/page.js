@@ -1,14 +1,15 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useSession } from "next-auth/react";
 import { Card } from "@/components/ui/card";
 import { Upload, ArrowLeft, MapPin, X } from "lucide-react";
 import Link from "next/link";
 import { useToast } from "@/hooks/use-toast";
 import { useSearchParams } from "next/navigation";
+import Image from "next/image";
 
-export default function AddImagePage() {
+function AddImagePage() {
   const { data: session } = useSession();
   const { toast } = useToast();
   const searchParams = useSearchParams();
@@ -190,7 +191,7 @@ export default function AddImagePage() {
         }
       });
     };
-  }, []);
+  }, [formData.images]);
 
   return (
     <div className="container mx-auto px-4 py-10">
@@ -314,9 +315,11 @@ export default function AddImagePage() {
               <div className="mt-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {formData.images.map((image) => (
                   <div key={image.id} className="relative bg-gray-50 rounded-lg p-3">
-                    <img
+                    <Image
                       src={image.preview}
                       alt={image.name}
+                      width={400}
+                      height={128}
                       className="w-full h-32 object-cover rounded mb-2"
                     />
                     <div className="flex items-center justify-between">
@@ -381,4 +384,14 @@ export default function AddImagePage() {
       </Card>
     </div>
   );
-} 
+}
+
+function PageWrapper() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <AddImagePage />
+    </Suspense>
+  );
+}
+
+export default PageWrapper; 

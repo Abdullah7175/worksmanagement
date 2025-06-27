@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { DataTable } from "./data-table";
 import { columns } from "./columns";
 import { Card } from "@/components/ui/card";
@@ -9,7 +9,7 @@ import Link from "next/link";
 import { useToast } from "@/hooks/use-toast";
 import { useSearchParams } from "next/navigation";
 
-export default function SubTownsPage() {
+function SubTownsPage() {
   const [subtowns, setSubtowns] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -154,4 +154,14 @@ export default function SubTownsPage() {
       </Card>
     </div>
   );
-} 
+}
+
+function PageWrapper() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <SubTownsPage />
+    </Suspense>
+  );
+}
+
+export default PageWrapper; 

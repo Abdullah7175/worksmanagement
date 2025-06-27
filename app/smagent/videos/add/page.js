@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useSession } from "next-auth/react";
 import { Card } from "@/components/ui/card";
 import { Upload, ArrowLeft, MapPin, X, Play } from "lucide-react";
@@ -8,7 +8,7 @@ import Link from "next/link";
 import { useToast } from "@/hooks/use-toast";
 import { useSearchParams } from "next/navigation";
 
-export default function AddVideoPage() {
+function AddVideoPage() {
   const { data: session } = useSession();
   const { toast } = useToast();
   const searchParams = useSearchParams();
@@ -196,7 +196,7 @@ export default function AddVideoPage() {
         }
       });
     };
-  }, []);
+  }, [formData.videos]);
 
   return (
     <div className="container mx-auto px-4 py-10">
@@ -392,4 +392,14 @@ export default function AddVideoPage() {
       </Card>
     </div>
   );
-} 
+}
+
+function PageWrapper() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <AddVideoPage />
+    </Suspense>
+  );
+}
+
+export default PageWrapper; 

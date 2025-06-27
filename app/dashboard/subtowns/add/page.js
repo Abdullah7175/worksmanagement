@@ -1,13 +1,13 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Card } from "@/components/ui/card";
 import { ArrowLeft, Plus } from "lucide-react";
 import Link from "next/link";
 import { useToast } from "@/hooks/use-toast";
 
-export default function AddSubTownPage() {
+function AddSubTownPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const preSelectedTownId = searchParams.get('town_id');
@@ -193,4 +193,14 @@ export default function AddSubTownPage() {
       </Card>
     </div>
   );
-} 
+}
+
+function PageWrapper() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <AddSubTownPage />
+    </Suspense>
+  );
+}
+
+export default PageWrapper; 
