@@ -10,6 +10,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { signIn } from "next-auth/react";
+import { useSession } from "next-auth/react";
+import React from "react";
 
 const validationSchema = Yup.object({
   email: Yup.string().email("Invalid email format").required("Email is required"),
@@ -19,6 +21,16 @@ const validationSchema = Yup.object({
 export default function LoginPage() {
   const router = useRouter();
   const { toast } = useToast();
+  const { data: session, status } = useSession();
+
+  // Redirect authenticated users away from /login
+  React.useEffect(() => {
+    if (status === "authenticated" && session?.user) {
+      if (session.user.userType === "agent") window.location.href = "/agent";
+      else if (session.user.userType === "socialmedia" || session.user.userType === "socialmediaperson") window.location.href = "/smagent";
+      else if (session.user.userType === "user") window.location.href = "/dashboard";
+    }
+  }, [session, status]);
 
   const formik = useFormik({
     initialValues: {
@@ -44,34 +56,26 @@ export default function LoginPage() {
         }
 
         if (result?.ok) {
-          // Wait a moment for the session to be set
           setTimeout(async () => {
             try {
               const sessionRes = await fetch("/api/auth/session");
               const session = await sessionRes.json();
-              
-              console.log("Session data:", session);
-              
-              // Redirect based on user type
               const userType = session?.user?.userType;
-              console.log("User type:", userType);
-              
               switch (userType) {
                 case "agent":
-                  router.push("/agent");
+                  window.location.href = "/agent";
                   break;
                 case "socialmedia":
-                  router.push("/smagent");
+                case "socialmediaperson":
+                  window.location.href = "/smagent";
                   break;
                 case "user":
                 default:
-                  router.push("/dashboard");
+                  window.location.href = "/dashboard";
                   break;
               }
             } catch (error) {
-              console.error("Error getting session:", error);
-              // Fallback redirect
-              router.push("/dashboard");
+              window.location.href = "/dashboard";
             }
           }, 1000);
         }

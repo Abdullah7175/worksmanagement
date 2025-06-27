@@ -51,7 +51,7 @@ export default function DownloadImagesPage() {
       const response = await fetch("/api/images");
       if (response.ok) {
         const data = await response.json();
-        setImages(data);
+        setImages(data.data || data || []);
       } else {
         toast({
           title: "Error",
@@ -228,7 +228,7 @@ export default function DownloadImagesPage() {
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredImages.map((image) => (
+            {(Array.isArray(filteredImages) ? filteredImages : []).map((image) => (
               <div key={image.id} className="bg-white border rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow">
                 <div className="relative">
                   <img

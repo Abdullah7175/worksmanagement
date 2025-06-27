@@ -160,6 +160,21 @@ export async function POST(req) {
             ]);
             uploadedImages.push(rows[0]);
         }
+        // Notify all managers (role=1 or 2)
+        try {
+            const client2 = await connectToDatabase();
+            const managers = await client2.query('SELECT id FROM users WHERE role IN (1,2)');
+            for (const mgr of managers.rows) {
+                await client2.query(
+                    'INSERT INTO notifications (user_id, type, entity_id, message) VALUES ($1, $2, $3, $4)',
+                    [mgr.id, 'image', workRequestId, `New image uploaded for request #${workRequestId}.`]
+                );
+            }
+            client2.release && client2.release();
+        } catch (notifErr) {
+            // Log but don't fail
+            console.error('Notification insert error:', notifErr);
+        }
         return NextResponse.json({
             message: 'Image(s) uploaded successfully',
             images: uploadedImages

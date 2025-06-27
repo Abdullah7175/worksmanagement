@@ -51,18 +51,6 @@ export const columns = [
   }
 },
   {
-    accessorKey: "link",
-    header: "Video",
-    cell: ({ row }) => {
-      const video = row.original;
-      return (
-        <Link href={video.link} target="_blank" rel="noopener noreferrer">
-          <Button variant="primary">Watch</Button>
-        </Link>
-      );
-    },
-  },
-  {
     accessorKey: "created_at",
     header: "Uploaded On",
     cell: ({ getValue }) => {

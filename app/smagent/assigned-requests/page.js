@@ -27,6 +27,11 @@ export default function AssignedRequestsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  // Helper to check if user is admin/manager
+  const isAdminOrManager = session?.user?.userType === 'user' && (session?.user?.role === 1 || session?.user?.role === 2);
+  // Helper to check if user is editor
+  const isEditor = session?.user?.userType === 'socialmediaperson' && session?.user?.role === 'editor';
+
   useEffect(() => {
     if (!session?.user?.id) return;
     setLoading(true);
@@ -70,65 +75,71 @@ export default function AssignedRequestsPage() {
         </Card>
       ) : (
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {requests.map((req) => (
-            <Card key={req.id} className="p-6 flex flex-col gap-3 bg-white border-2 shadow-md hover:shadow-lg transition-shadow">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <span className={`font-semibold ${statusColors[req.status_id]}`}>
-                    {statusIcons[req.status_id]}
-                  </span>
-                  <span className={`font-semibold ${statusColors[req.status_id]}`}>
-                    {statusLabels[req.status_id] || "Unknown"}
-                  </span>
+          {requests.map((req) => {
+            // Status mapping for display
+            const statusMap = {
+              1: 'Pending',
+              2: 'Assigned',
+              3: 'In Progress',
+              4: 'Completed',
+              5: 'Cancelled',
+            };
+            // Debug log
+            console.log('Request debug:', req);
+            // Use status_id for logic
+            const statusId = Number(req.status_id);
+            const isCompleted = statusId === 4;
+            const displayStatus = statusMap[statusId] || req.status_name || 'Unknown';
+            return (
+              <Card key={req.id} className="p-6 flex flex-col gap-3 bg-white border-2 shadow-md hover:shadow-lg transition-shadow">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="text-lg font-semibold">Request #{req.id}</div>
+                    <div className="text-sm text-gray-500">{req.town_name}</div>
+                  </div>
+                  <div>
+                    <span className={`px-2 py-1 rounded text-xs font-bold ${isCompleted ? 'bg-green-100 text-green-700' : statusId === 3 ? 'bg-blue-100 text-blue-700' : statusId === 2 ? 'bg-yellow-100 text-yellow-700' : statusId === 1 ? 'bg-gray-100 text-gray-700' : 'bg-red-100 text-red-700'}`}>{displayStatus}</span>
+                  </div>
                 </div>
-                <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">
-                  #{req.id}
-                </span>
-              </div>
-              
-              <div>
-                <h3 className="font-semibold text-lg mb-1">{req.address || "No address"}</h3>
-                <p className="text-sm text-gray-600 mb-2">
-                  <span className="font-medium">Type:</span> {req.complaint_type || "-"}
-                </p>
-                {req.complaint_subtype && (
+                
+                <div>
+                  <h3 className="font-semibold text-lg mb-1">{req.address || "No address"}</h3>
                   <p className="text-sm text-gray-600 mb-2">
-                    <span className="font-medium">Subtype:</span> {req.complaint_subtype}
+                    <span className="font-medium">Type:</span> {req.complaint_type || "-"}
                   </p>
-                )}
-                <p className="text-sm text-gray-600">
-                  <span className="font-medium">Date:</span> {req.request_date ? new Date(req.request_date).toLocaleDateString() : "-"}
-                </p>
-              </div>
-
-              <div className="mt-auto pt-4 border-t border-gray-100">
-                <div className="flex gap-2">
-                  <Link href={`/smagent/images/add?requestId=${req.id}`} className="flex-1">
-                    <button className="w-full px-3 py-2 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 transition-colors flex items-center justify-center gap-2" 
-                      disabled={req.status_id === 3 && !(
-                        (session?.user?.userType === 'user' && (session?.user?.role === 1 || session?.user?.role === 2)) ||
-                        (session?.user?.userType === 'socialmediaperson' && session?.user?.role === 'editor')
-                      )}
-                    >
-                      <ImageIcon className="w-4 h-4" />
-                      Add Image
-                    </button>
-                  </Link>
-                  <Link href={`/smagent/videos/add?requestId=${req.id}`} className="flex-1">
-                    <button className="w-full px-3 py-2 bg-green-600 text-white text-sm rounded hover:bg-green-700 transition-colors flex items-center justify-center gap-2" 
-                      disabled={req.status_id === 3 && !(
-                        (session?.user?.userType === 'user' && (session?.user?.role === 1 || session?.user?.role === 2)) ||
-                        (session?.user?.userType === 'socialmediaperson' && session?.user?.role === 'editor')
-                      )}
-                    >
-                      <Video className="w-4 h-4" />
-                      Add Video
-                    </button>
-                  </Link>
+                  {req.complaint_subtype && (
+                    <p className="text-sm text-gray-600 mb-2">
+                      <span className="font-medium">Subtype:</span> {req.complaint_subtype}
+                    </p>
+                  )}
+                  <p className="text-sm text-gray-600">
+                    <span className="font-medium">Date:</span> {req.request_date ? new Date(req.request_date).toLocaleDateString() : "-"}
+                  </p>
                 </div>
-              </div>
-            </Card>
-          ))}
+
+                <div className="mt-auto pt-4 border-t border-gray-100">
+                  <div className="flex gap-2">
+                    <Link href={`/smagent/images/add?requestId=${req.id}`} className="flex-1">
+                      <button className="w-full px-3 py-2 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"
+                        disabled={isCompleted && !isAdminOrManager}
+                      >
+                        <ImageIcon className="w-4 h-4" />
+                        Add Image
+                      </button>
+                    </Link>
+                    <Link href={`/smagent/videos/add?requestId=${req.id}`} className="flex-1">
+                      <button className="w-full px-3 py-2 bg-green-600 text-white text-sm rounded hover:bg-green-700 transition-colors flex items-center justify-center gap-2"
+                        disabled={isCompleted && !isAdminOrManager}
+                      >
+                        <Video className="w-4 h-4" />
+                        Add Video
+                      </button>
+                    </Link>
+                  </div>
+                </div>
+              </Card>
+            );
+          })}
         </div>
       )}
     </div>

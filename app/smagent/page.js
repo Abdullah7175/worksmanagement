@@ -41,6 +41,15 @@ const statusLabels = {
   3: "Completed",
 };
 
+// Add status mapping for display and logic
+const statusMap = {
+  1: 'Pending',
+  2: 'Assigned',
+  3: 'In Progress',
+  4: 'Completed',
+  5: 'Cancelled',
+};
+
 export default function SmAgentDashboard() {
   const { data: session } = useSession();
   const [requests, setRequests] = useState([]);
@@ -194,35 +203,43 @@ export default function SmAgentDashboard() {
               <div className="text-gray-500">No requests assigned to you yet.</div>
             ) : (
               <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-                {requests.slice(0, 6).map((req) => (
-                  <Card key={req.id} className="p-6 flex flex-col gap-2 bg-slate-50 border-2 shadow-md">
-                    <div className="flex items-center gap-2 mb-2">
-                      <span className={`font-semibold ${statusColors[req.status_id]}`}>
-                        {statusIcons[req.status_id]}
-                      </span>
-                      <span className={`font-semibold ${statusColors[req.status_id]}`}>
-                        {statusLabels[req.status_id] || "Unknown"}
-                      </span>
-                    </div>
-                    <div className="font-medium text-lg">{req.address || "No address"}</div>
-                    <div className="text-sm text-gray-600">Type: {req.complaint_type || "-"}</div>
-                    <div className="text-sm text-gray-600">
-                      Date: {req.request_date ? new Date(req.request_date).toLocaleDateString() : "-"}
-                    </div>
-                    <div className="mt-2 flex gap-2">
-                      <Link href={`/smagent/images/add?requestId=${req.id}`}>
-                        <button className="px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700">
-                          Add Image
-                        </button>
-                      </Link>
-                      <Link href={`/smagent/videos/add?requestId=${req.id}`}>
-                        <button className="px-3 py-1 bg-green-600 text-white text-sm rounded hover:bg-green-700">
-                          Add Video
-                        </button>
-                      </Link>
-                    </div>
-                  </Card>
-                ))}
+                {requests.slice(0, 6).map((req) => {
+                  // Use status_id for logic
+                  const statusId = Number(req.status_id);
+                  const isCompleted = statusId === 4;
+                  const displayStatus = statusMap[statusId] || req.status_name || 'Unknown';
+                  // Only allow add image/video if not completed or user is admin/manager
+                  // (Assume isAdminOrManager logic is similar to assigned-requests)
+                  const isAdminOrManager = session?.user?.userType === 'user' && (session?.user?.role === 1 || session?.user?.role === 2);
+                  return (
+                    <Card key={req.id} className="p-6 flex flex-col gap-2 bg-slate-50 border-2 shadow-md">
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className={`px-2 py-1 rounded text-xs font-bold ${isCompleted ? 'bg-green-100 text-green-700' : statusId === 3 ? 'bg-blue-100 text-blue-700' : statusId === 2 ? 'bg-yellow-100 text-yellow-700' : statusId === 1 ? 'bg-gray-100 text-gray-700' : 'bg-red-100 text-red-700'}`}>{displayStatus}</span>
+                      </div>
+                      <div className="font-medium text-lg">{req.address || "No address"}</div>
+                      <div className="text-sm text-gray-600">Type: {req.complaint_type || "-"}</div>
+                      <div className="text-sm text-gray-600">
+                        Date: {req.request_date ? new Date(req.request_date).toLocaleDateString() : "-"}
+                      </div>
+                      <div className="mt-2 flex gap-2">
+                        <Link href={`/smagent/images/add?requestId=${req.id}`}>
+                          <button className="px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
+                            disabled={isCompleted && !isAdminOrManager}
+                          >
+                            Add Image
+                          </button>
+                        </Link>
+                        <Link href={`/smagent/videos/add?requestId=${req.id}`}>
+                          <button className="px-3 py-1 bg-green-600 text-white text-sm rounded hover:bg-green-700"
+                            disabled={isCompleted && !isAdminOrManager}
+                          >
+                            Add Video
+                          </button>
+                        </Link>
+                      </div>
+                    </Card>
+                  );
+                })}
               </div>
             )}
             {requests.length > 6 && (

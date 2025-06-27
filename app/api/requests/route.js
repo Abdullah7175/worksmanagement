@@ -378,6 +378,57 @@ export async function POST(req) {
             }
         }
         await client.query('COMMIT');
+        // Insert notifications for relevant users
+        try {
+            // Get creator info
+            let creatorName = '';
+            if (creator_type === 'agent') {
+                const res = await client.query('SELECT name, role FROM agents WHERE id = $1', [creator_id]);
+                creatorName = res.rows[0]?.name || '';
+                const creatorRole = res.rows[0]?.role;
+                // Notify the other agent (contractor <-> executive engineer)
+                if (Number(creatorRole) === 2 && final_executive_engineer_id && final_executive_engineer_id !== creator_id) {
+                    // Contractor created, notify executive engineer
+                    await client.query(
+                        'INSERT INTO notifications (agent_id, type, entity_id, message) VALUES ($1, $2, $3, $4)',
+                        [final_executive_engineer_id, 'request', workRequestId, `New work request from ${creatorName} for you.`]
+                    );
+                } else if (Number(creatorRole) === 1 && final_contractor_id && final_contractor_id !== creator_id) {
+                    // Executive engineer created, notify contractor
+                    await client.query(
+                        'INSERT INTO notifications (agent_id, type, entity_id, message) VALUES ($1, $2, $3, $4)',
+                        [final_contractor_id, 'request', workRequestId, `New work request from ${creatorName} for you.`]
+                    );
+                }
+                // Notify all managers (role=1 or 2)
+                const managers = await client.query('SELECT id FROM users WHERE role IN (1,2)');
+                for (const mgr of managers.rows) {
+                    if (mgr.id !== creator_id) {
+                        await client.query(
+                            'INSERT INTO notifications (user_id, type, entity_id, message) VALUES ($1, $2, $3, $4)',
+                            [mgr.id, 'request', workRequestId, `New work request from ${creatorName}.`]
+                        );
+                    }
+                }
+            } else if (creator_type === 'user') {
+                // Manager created, notify both contractor and executive engineer if present
+                if (final_contractor_id && final_contractor_id !== creator_id) {
+                    await client.query(
+                        'INSERT INTO notifications (user_id, type, entity_id, message) VALUES ($1, $2, $3, $4)',
+                        [final_contractor_id, 'request', workRequestId, `New work request from manager for you.`]
+                    );
+                }
+                if (final_executive_engineer_id && final_executive_engineer_id !== creator_id) {
+                    await client.query(
+                        'INSERT INTO notifications (user_id, type, entity_id, message) VALUES ($1, $2, $3, $4)',
+                        [final_executive_engineer_id, 'request', workRequestId, `New work request from manager for you.`]
+                    );
+                }
+            }
+        } catch (notifErr) {
+            // Log but don't fail request
+            console.error('Notification insert error:', notifErr);
+        }
         return NextResponse.json({
             message: 'Work request submitted successfully',
             id: workRequestId
@@ -487,6 +538,11 @@ export async function PUT(req) {
                 await client.query(
                     'INSERT INTO request_assign_smagent (work_requests_id, socialmedia_agent_id, status) VALUES ($1, $2, $3)',
                     [id, smAgent.sm_agent_id, smAgent.status || 1]
+                );
+                // Insert notification for the assigned smagent
+                await client.query(
+                    'INSERT INTO notifications (socialmedia_id, type, entity_id, message) VALUES ($1, $2, $3, $4)',
+                    [smAgent.sm_agent_id, 'assignment', id, `You have been assigned to request #${id}.`]
                 );
             }
         }

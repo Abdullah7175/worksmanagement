@@ -229,8 +229,25 @@ export async function POST(req) {
          body.link,
         ]);
 
-        return NextResponse.json({ message: 'Video added successfully', video: newVideo[0] }, { status: 201 });
-
+        // Notify all managers (role=1 or 2)
+        try {
+            const client2 = await connectToDatabase();
+            const managers = await client2.query('SELECT id FROM users WHERE role IN (1,2)');
+            for (const mgr of managers.rows) {
+                await client2.query(
+                    'INSERT INTO notifications (user_id, type, entity_id, message) VALUES ($1, $2, $3, $4)',
+                    [mgr.id, 'video', body.workRequestId, `New video uploaded for request #${body.workRequestId}.`]
+                );
+            }
+            client2.release && client2.release();
+        } catch (notifErr) {
+            // Log but don't fail
+            console.error('Notification insert error:', notifErr);
+        }
+        return NextResponse.json({
+            message: 'Video(s) uploaded successfully',
+            videos: newVideo
+        }, { status: 201 });
     } catch (error) {
         console.error('Error saving video:', error);
         return NextResponse.json({ error: 'Error saving video' }, { status: 500 });
