@@ -386,6 +386,7 @@ export async function POST(req) {
                 const res = await client.query('SELECT name, role FROM agents WHERE id = $1', [creator_id]);
                 creatorName = res.rows[0]?.name || '';
                 const creatorRole = res.rows[0]?.role;
+                
                 // Notify the other agent (contractor <-> executive engineer)
                 if (Number(creatorRole) === 2 && final_executive_engineer_id && final_executive_engineer_id !== creator_id) {
                     // Contractor created, notify executive engineer
@@ -400,34 +401,36 @@ export async function POST(req) {
                         [final_contractor_id, 'request', workRequestId, `New work request from ${creatorName} for you.`]
                     );
                 }
-                // Notify all managers (role=1 or 2)
+                
+                // Notify all managers (role=1 or 2) and admins
                 const managers = await client.query('SELECT id FROM users WHERE role IN (1,2)');
                 for (const mgr of managers.rows) {
-                    if (mgr.id !== creator_id) {
-                        await client.query(
-                            'INSERT INTO notifications (user_id, type, entity_id, message) VALUES ($1, $2, $3, $4)',
-                            [mgr.id, 'request', workRequestId, `New work request from ${creatorName}.`]
-                        );
-                    }
+                    await client.query(
+                        'INSERT INTO notifications (user_id, type, entity_id, message) VALUES ($1, $2, $3, $4)',
+                        [mgr.id, 'request', workRequestId, `New work request from ${creatorName} (Agent).`]
+                    );
                 }
             } else if (creator_type === 'user') {
+                const res = await client.query('SELECT name FROM users WHERE id = $1', [creator_id]);
+                creatorName = res.rows[0]?.name || 'Manager';
+                
                 // Manager created, notify both contractor and executive engineer if present
                 if (final_contractor_id && final_contractor_id !== creator_id) {
                     await client.query(
-                        'INSERT INTO notifications (user_id, type, entity_id, message) VALUES ($1, $2, $3, $4)',
-                        [final_contractor_id, 'request', workRequestId, `New work request from manager for you.`]
+                        'INSERT INTO notifications (agent_id, type, entity_id, message) VALUES ($1, $2, $3, $4)',
+                        [final_contractor_id, 'request', workRequestId, `New work request from ${creatorName} for you.`]
                     );
                 }
                 if (final_executive_engineer_id && final_executive_engineer_id !== creator_id) {
                     await client.query(
-                        'INSERT INTO notifications (user_id, type, entity_id, message) VALUES ($1, $2, $3, $4)',
-                        [final_executive_engineer_id, 'request', workRequestId, `New work request from manager for you.`]
+                        'INSERT INTO notifications (agent_id, type, entity_id, message) VALUES ($1, $2, $3, $4)',
+                        [final_executive_engineer_id, 'request', workRequestId, `New work request from ${creatorName} for you.`]
                     );
                 }
             }
         } catch (notifErr) {
             // Log but don't fail request
-            console.error('Notification insert error:', notifErr);
+            console.error('Notification creation failed:', notifErr);
         }
         return NextResponse.json({
             message: 'Work request submitted successfully',

@@ -145,7 +145,7 @@ export default function AddTownPage() {
               <option value="">Select a district (optional)</option>
               {districts.map((district) => (
                 <option key={district.id} value={district.id}>
-                  {district.district || district.name}
+                  {district.district_name || district.district || district.name || `District ${district.id}`}
                 </option>
               ))}
             </select>

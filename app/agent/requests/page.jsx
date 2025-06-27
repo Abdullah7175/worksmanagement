@@ -55,11 +55,31 @@ const RequestsPage = () => {
     }, [router, session?.user?.id]);
 
     if (loading) {
-        return <div className="container mx-auto py-6">Loading requests...</div>;
+        return (
+            <div className="container mx-auto px-4 py-10">
+                <div className="text-center">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+                    <p className="mt-2 text-gray-600">Loading requests...</p>
+                </div>
+            </div>
+        );
     }
 
     if (error) {
-        return <div className="container mx-auto py-6">Error: {error}</div>;
+        return (
+            <div className="container mx-auto px-4 py-10">
+                <div className="text-center">
+                    <h1 className="text-2xl font-bold text-red-600 mb-4">Error</h1>
+                    <p className="text-gray-600 mb-4">{error}</p>
+                    <button 
+                        onClick={() => router.push('/agent/requests')}
+                        className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                    >
+                        Try Again
+                    </button>
+                </div>
+            </div>
+        );
     }
 
     const columns = getAgentRequestColumns({
@@ -88,7 +108,20 @@ const RequestsPage = () => {
                 </Button>
             </div>
             <div className="bg-white rounded-lg shadow">
-                <DataTable columns={columns} data={requests} />
+                <DataTable 
+                    columns={columns} 
+                    data={requests} 
+                    meta={{
+                        onAddImage: (id) => {
+                            setSelectedRequestId(id);
+                            setShowImageForm(true);
+                        },
+                        onAddVideo: (id) => {
+                            setSelectedRequestId(id);
+                            setShowVideoForm(true);
+                        },
+                    }}
+                />
             </div>
             {showImageForm && selectedRequestId && (
                 <Modal onClose={closeForms}>

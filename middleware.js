@@ -94,66 +94,69 @@ function isAllowed(pathname, allowedList) {
 }
 
 export async function middleware(req) {
-  const { pathname } = req.nextUrl;
-  const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
-
-  // LOGGING FOR DEBUGGING
-  console.log("MIDDLEWARE LOG:", { pathname, token });
-
-  // Allow public paths
-  if (PUBLIC_PATHS.some((path) => pathname.startsWith(path))) {
-    return NextResponse.next();
-  }
-
-  // If no session, redirect to login
-  if (!token) {
-    return NextResponse.redirect(new URL("/login", req.url));
-  }
-
-  // /dashboard protection
-  if (pathname.startsWith("/dashboard")) {
-    if (token.user?.userType !== "user" || !dashboardRoles.includes(Number(token.user?.role))) {
-      // Redirect to correct dashboard for this user
-      return NextResponse.redirect(new URL(getDashboardForUser(token), req.url));
+    const { pathname } = req.nextUrl;
+    
+    // Skip middleware for static files and API routes
+    if (pathname.startsWith('/_next') || pathname.startsWith('/api') || pathname.includes('.')) {
+        return NextResponse.next();
     }
-    if (!isAllowed(pathname, dashboardAllowed)) {
-      return NextResponse.redirect(new URL("/unauthorized", req.url));
-    }
-  }
 
-  // /agent protection
-  if (pathname.startsWith("/agent")) {
-    if (token.user?.userType !== "agent") {
-      return NextResponse.redirect(new URL(getDashboardForUser(token), req.url));
-    }
-    if (!isAllowed(pathname, agentAllowed)) {
-      return NextResponse.redirect(new URL("/unauthorized", req.url));
-    }
-  }
+    try {
+        const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
+        
+        if (!token) {
+            // Redirect to login if no token and trying to access protected routes
+            if (pathname !== '/login' && pathname !== '/' && !pathname.startsWith('/public')) {
+                return NextResponse.redirect(new URL('/login', req.url));
+            }
+            return NextResponse.next();
+        }
 
-  // /smagent protection
-  if (pathname.startsWith("/smagent")) {
-    if (token.user?.userType !== "socialmedia") {
-      return NextResponse.redirect(new URL(getDashboardForUser(token), req.url));
-    }
-    const role = Number(token.user?.role);
-    if (smagentRolesA.includes(role)) {
-      if (!isAllowed(pathname, smagentAllowedA)) {
-        return NextResponse.redirect(new URL("/unauthorized", req.url));
-      }
-    } else if (smagentRolesB.includes(role)) {
-      if (!isAllowed(pathname, smagentAllowedB)) {
-        return NextResponse.redirect(new URL("/unauthorized", req.url));
-      }
-    } else {
-      // Unknown role, redirect to their dashboard
-      return NextResponse.redirect(new URL(getDashboardForUser(token), req.url));
-    }
-  }
+        // Get dashboard based on user type
+        const dashboard = getDashboardForUser(token);
+        
+        // Check if user is trying to access their dashboard
+        if (pathname === '/') {
+            return NextResponse.redirect(new URL(dashboard, req.url));
+        }
 
-  // You can add more rules for other sections here if needed
+        // Check permissions for different user types
+        const userType = token.user?.userType;
+        const userRole = token.user?.role;
 
-  return NextResponse.next();
+        if (userType === 'user') {
+            // Admin/Manager access
+            if (userRole === 1 || userRole === 2) {
+                const allowedPaths = ['/dashboard', '/dashboard/requests', '/dashboard/users', '/dashboard/agents', '/dashboard/socialmediaagent', '/dashboard/complaints', '/dashboard/towns', '/dashboard/districts', '/dashboard/subtowns', '/dashboard/images', '/dashboard/videos', '/dashboard/final-videos', '/dashboard/reports', '/dashboard/roles'];
+                if (!isAllowed(pathname, allowedPaths)) {
+                    return NextResponse.redirect(new URL('/unauthorized', req.url));
+                }
+            } else {
+                // Regular user - limited access
+                const allowedPaths = ['/dashboard', '/dashboard/requests'];
+                if (!isAllowed(pathname, allowedPaths)) {
+                    return NextResponse.redirect(new URL('/unauthorized', req.url));
+                }
+            }
+        } else if (userType === 'agent') {
+            // Agent access
+            const allowedPaths = ['/agent', '/agent/requests', '/agent/images', '/agent/videos'];
+            if (!isAllowed(pathname, allowedPaths)) {
+                return NextResponse.redirect(new URL('/unauthorized', req.url));
+            }
+        } else if (userType === 'socialmedia') {
+            // Social media agent access
+            const allowedPaths = ['/smagent', '/smagent/assigned-requests', '/smagent/images', '/smagent/videos', '/smagent/final-videos'];
+            if (!isAllowed(pathname, allowedPaths)) {
+                return NextResponse.redirect(new URL('/unauthorized', req.url));
+            }
+        }
+
+        return NextResponse.next();
+    } catch (error) {
+        console.error('Middleware error:', error);
+        return NextResponse.redirect(new URL('/login', req.url));
+    }
 }
 
 export const config = {

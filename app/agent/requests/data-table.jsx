@@ -21,7 +21,7 @@ import {
   TableRow,
 } from "@/components/ui/table"
 
-export function DataTable({ columns, data }) {
+export function DataTable({ columns, data, meta }) {
   const router = useRouter()
   const table = useReactTable({
     data,
@@ -30,6 +30,7 @@ export function DataTable({ columns, data }) {
     getPaginationRowModel: getPaginationRowModel(),
     getSortedRowModel: getSortedRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
+    meta: meta,
   })
 
   return (

@@ -40,7 +40,7 @@ const SubtypeForm = () => {
                 const response = await fetch('/api/complaints/subtypes', {
                     method: 'POST',
                     headers: {
-                        'Content-_name': 'application/json',
+                        'Content-Type': 'application/json',
                     },
                     body: JSON.stringify(values),
                 });
@@ -71,27 +71,24 @@ const SubtypeForm = () => {
     });
 
 
-    const fetchTypes = async () => {
-        try {
-            const response = await fetch('/api/complaints/subtypes', { method: 'getComplaintTypes' });
-            console.log(response)
-
-            if (response.ok) {
-                const data = await response.json();
-                console.log('Fetched Subtypes:', data);
-                setTypes(data);
-            } else {
-                setError('Failed to fetch users');
+    useEffect(() => {
+        const fetchTypes = async () => {
+            try {
+                const response = await fetch('/api/complaints/subtypes', { method: 'GET' });
+                if (response.ok) {
+                    const data = await response.json();
+                    setTypes(data);
+                } else {
+                    setError('Failed to fetch subtypes');
+                }
+            } catch (error) {
+                setError('Error fetching subtypes');
+            } finally {
+                setLoading(false);
             }
-        } catch (error) {
-            console.error('Error fetching users:', error);
-            setError('Error fetching users');
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    fetchTypes();
+        };
+        fetchTypes();
+    }, []);
 
     useEffect(() => {
         const fetchComplaintTypes = async () => {

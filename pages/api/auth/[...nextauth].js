@@ -13,70 +13,86 @@ export const authOptions = {
         password: { label: "Password", type: "password" }
       },
       async authorize(credentials) {
-        let client;
         try {
-          console.log("Starting authentication for:", credentials.email);
-          client = await connectToDatabase();
-          console.log("Database connected successfully");
-
-          // Check in all user tables
-          const userTypes = [
-            { table: 'users', query: 'SELECT * FROM users WHERE email = $1' },
-            { table: 'agents', query: 'SELECT * FROM agents WHERE email = $1' },
-            { table: 'socialmediaperson', query: 'SELECT * FROM socialmediaperson WHERE email = $1' }
-          ];
-
-          let user = null;
-          let userType = null;
-
-          for (const { table, query } of userTypes) {
-            console.log(`Checking ${table} table...`);
-            const result = await client.query(query, [credentials.email]);
-            if (result.rows.length > 0) {
-              user = result.rows[0];
-              // Map table name to singular type
-              if (table === 'users') userType = 'user';
-              else if (table === 'agents') userType = 'agent';
-              else if (table === 'socialmediaperson') userType = 'socialmedia';
-              else userType = table;
-              console.log(`User found in ${table} table, mapped userType: ${userType}`);
-              break;
+          console.log('Starting authentication for:', credentials.email);
+          
+          const client = await connectToDatabase();
+          console.log('Database connected successfully');
+          
+          // Check users table first
+          console.log('Checking users table...');
+          let userResult = await client.query('SELECT * FROM users WHERE email = $1', [credentials.email]);
+          
+          if (userResult.rows.length > 0) {
+            const user = userResult.rows[0];
+            console.log('User found in users table, mapped userType: user');
+            
+            const isValid = await bcrypt.compare(credentials.password, user.password);
+            console.log('Verifying password...');
+            
+            if (isValid) {
+              console.log('Password verified successfully');
+              console.log('User authenticated:', { id: user.id, name: user.name, userType: 'user', role: user.role });
+              return {
+                id: user.id,
+                name: user.name,
+                email: user.email,
+                role: user.role,
+                userType: 'user'
+              };
             }
           }
-
-          if (!user) {
-            console.error("User not found:", credentials.email);
-            return null;
+          
+          // Check agents table
+          let agentResult = await client.query('SELECT * FROM agents WHERE email = $1', [credentials.email]);
+          
+          if (agentResult.rows.length > 0) {
+            const agent = agentResult.rows[0];
+            console.log('User found in agents table, mapped userType: agent');
+            
+            const isValid = await bcrypt.compare(credentials.password, agent.password);
+            console.log('Verifying password...');
+            
+            if (isValid) {
+              console.log('Password verified successfully');
+              console.log('User authenticated:', { id: agent.id, name: agent.name, userType: 'agent', role: agent.role });
+              return {
+                id: agent.id,
+                name: agent.name,
+                email: agent.email,
+                role: agent.role,
+                userType: 'agent'
+              };
+            }
           }
-
-          // Verify password
-          console.log("Verifying password...");
-          const isValid = await bcrypt.compare(credentials.password, user.password);
-          if (!isValid) {
-            console.error("Invalid password for user:", credentials.email);
-            return null;
+          
+          // Check socialmediaperson table
+          let smResult = await client.query('SELECT * FROM socialmediaperson WHERE email = $1', [credentials.email]);
+          
+          if (smResult.rows.length > 0) {
+            const sm = smResult.rows[0];
+            console.log('User found in socialmediaperson table, mapped userType: socialmedia');
+            
+            const isValid = await bcrypt.compare(credentials.password, sm.password);
+            console.log('Verifying password...');
+            
+            if (isValid) {
+              console.log('Password verified successfully');
+              console.log('User authenticated:', { id: sm.id, name: sm.name, userType: 'socialmedia', role: sm.role });
+              return {
+                id: sm.id,
+                name: sm.name,
+                email: sm.email,
+                role: sm.role,
+                userType: 'socialmedia'
+              };
+            }
           }
-
-          console.log("Password verified successfully");
-          console.log("User authenticated:", { id: user.id, name: user.name, userType, role: user.role });
-
-          // Return user data for NextAuth
-          return {
-            id: user.id,
-            name: user.name,
-            email: user.email,
-            role: user.role,
-            userType: userType // always singular now
-          };
-
-        } catch (error) {
-          console.error("Authentication error:", error.message);
-          console.error("Full error:", error);
+          
           return null;
-        } finally {
-          if (client && client.release) {
-            client.release();
-          }
+        } catch (error) {
+          console.error('Authentication error:', error);
+          return null;
         }
       }
     })
@@ -93,22 +109,14 @@ export const authOptions = {
   callbacks: {
     async jwt({ token, user }) {
       if (user) {
-        console.log("JWT callback - user data:", user);
-        token.user = {
-          id: user.id,
-          name: user.name,
-          email: user.email,
-          role: user.role,
-          userType: user.userType
-        };
-        console.log("JWT callback - token.user:", token.user);
+        token.user = user;
       }
       return token;
     },
     async session({ session, token }) {
-      console.log("Session callback - token.user:", token.user);
-      session.user = token.user;
-      console.log("Session callback - final session.user:", session.user);
+      if (token.user) {
+        session.user = token.user;
+      }
       return session;
     }
   }
